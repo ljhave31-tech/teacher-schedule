@@ -1,0 +1,1610 @@
+<!doctype html><html><head><link rel="icon" type="image/png" sizes="64x64" href="icons/favicon.png"><link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#eaf3fc"><meta name="theme-color" content="#16202c" media="(prefers-color-scheme: dark)"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Teacher Schedule"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Teacher Schedule</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: soft rounded cards on a pale blue ground, a floating pill nav, a pill day picker that stays pinned,
+   and a bottom sheet for editing. Blue = free (legend from the original sheet), peach = booked. */
+:root {
+  --bg: #eaf3fc;
+  --card: #ffffff;
+  --ink: #2c3e55;
+  --mute: #7a90a9;
+  --line: #e0ebf7;
+  --accent: #3b78c0;
+  --on-accent: #ffffff;
+  --soft: #dcebfa;
+  --free: #b6d5f5;
+  --free-ink: #1c4a80;
+  --booked: #fbdccb;
+  --booked-ink: #7a3f22;
+  --ring-free: #7fb2e8;
+  --ring-book: #f2a58e;
+  --bad: #c9604a;
+  --star: #f2b84b;
+  --shadow: 0 6px 20px rgba(50, 90, 140, .09);
+  --ease: cubic-bezier(.2, .9, .25, 1);
+  --f: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16202c; --card: #202d3c; --ink: #e9f1fa; --mute: #9bb1c9; --line: #304358;
+    --accent: #8ebcf0; --on-accent: #0f2a47; --soft: #2a3f57; --free: #35567c; --free-ink: #d6e9fc;
+    --booked: #5a3f33; --booked-ink: #fbdccb; --ring-free: #7fb2e8; --ring-book: #f2a58e; --bad: #ff9a8a;
+    --shadow: 0 6px 20px rgba(0, 0, 0, .28); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16202c; --card: #202d3c; --ink: #e9f1fa; --mute: #9bb1c9; --line: #304358;
+  --accent: #8ebcf0; --on-accent: #0f2a47; --soft: #2a3f57; --free: #35567c; --free-ink: #d6e9fc;
+  --booked: #5a3f33; --booked-ink: #fbdccb; --ring-free: #7fb2e8; --ring-book: #f2a58e; --bad: #ff9a8a;
+  --shadow: 0 6px 20px rgba(0, 0, 0, .28); color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f); font-weight: 500; font-size: 15px; line-height: 1.4;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 120px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 520px; margin: 0 auto; }
+.ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* header */
+.hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-block: 18px 10px; }
+h1 { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 22px; font-weight: 800; line-height: 1.15; }
+h1 small { display: block; font-size: 13px; color: var(--mute); font-weight: 500; }
+.hdr { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex: none; }
+.clock { font-size: 13px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.clock small { font-size: 10.5px; font-weight: 800; color: var(--accent); margin-right: 5px; letter-spacing: .04em; }
+.gtxt { display: grid; min-width: 0; }
+.gname { font-size: 22px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.logo { width: 42px; height: 42px; border-radius: 14px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; flex: none; }
+.logo .ic { width: 24px; height: 24px; }
+.sync { font-size: 11px; font-weight: 800; color: var(--mute); background: var(--card); box-shadow: var(--shadow); border-radius: 99px; padding: 5px 11px; white-space: nowrap; }
+
+/* pinned picker */
+#stick { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--bg); padding-block: 4px 8px; }
+#stick:empty { display: none; }
+.tabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; background: var(--card); border-radius: 99px; padding: 3px; box-shadow: var(--shadow); }
+.tabs button { position: relative; border: 0; background: none; color: var(--mute); font-weight: 800; font-size: 11px; min-height: 40px; padding: 0 1px; border-radius: 99px; }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.tabs button.today::after { content: ""; position: absolute; top: 5px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--ring-book); }
+.wgrid { display: grid; grid-template-columns: 34px 34px repeat(7, minmax(0, 1fr)); gap: 3px; align-items: center; }
+.whead { background: var(--card); border-radius: 99px; box-shadow: var(--shadow); padding: 9px 14px; font-size: 9.5px; font-weight: 800; color: var(--mute); text-align: center; }
+
+/* cards */
+main { display: grid; gap: 14px; padding-block: 6px 16px; }
+.card { background: var(--card); border-radius: 22px; padding: 18px; box-shadow: var(--shadow); display: grid; gap: 12px; min-width: 0; }
+.card.tight { padding: 14px; }
+.hero-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.hero-title { font-size: 17px; font-weight: 800; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; background: var(--soft); color: var(--accent); border-radius: 99px; padding: 5px 11px; }
+.hero { display: flex; align-items: center; gap: 18px; }
+.ring { position: relative; width: 116px; height: 116px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: var(--mute); line-height: 1.1; }
+.ring .mid b { font-size: 26px; color: var(--ink); font-weight: 800; }
+.stats { flex: 1; display: grid; gap: 8px; min-width: 0; }
+.stat { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--mute); gap: 8px; }
+.stat b { font-size: 17px; color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; }
+.note { display: flex; gap: 9px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--soft); font-size: 13.5px; font-weight: 700; }
+.note .ic { color: var(--accent); }
+.banner { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px 14px; border-radius: 18px; background: var(--card); box-shadow: var(--shadow); font-size: 13px; color: var(--mute); font-weight: 700; }
+.link { border: 0; background: none; color: var(--accent); font-weight: 800; font-size: 13.5px; padding: 4px 2px; }
+
+/* timetable */
+.cols, .row { display: grid; grid-template-columns: 58px 38px minmax(0, 1fr); gap: 6px; align-items: center; }
+.cols { font-size: 11px; font-weight: 800; color: var(--mute); }
+.rows { display: grid; gap: 5px; }
+.t { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; padding: 3px 6px; border-radius: 9px; white-space: nowrap; }
+.t small { font-size: 9.5px; margin-left: 2px; opacity: .7; font-weight: 700; }
+.t.vn { color: var(--mute); font-weight: 700; font-size: 12.5px; padding-inline: 0; }
+.row.now .t.ph { background: var(--accent); color: var(--on-accent); }
+.slot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; min-width: 0;
+  border: 0; border-radius: 14px; background: var(--bg); color: var(--mute); text-align: left; padding: 0 14px; font-weight: 700;
+}
+.slot.free { background: var(--free); color: var(--free-ink); font-weight: 800; font-size: 12px; letter-spacing: .1em; }
+.slot.booked { background: var(--booked); color: var(--booked-ink); font-weight: 800; }
+.slot .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot .rm { font-size: 11.5px; font-weight: 700; opacity: .8; white-space: nowrap; }
+
+/* week */
+.wrow { display: grid; grid-template-columns: 34px 34px repeat(7, minmax(0, 1fr)); gap: 3px; align-items: center; }
+.wrow .t { font-size: 10.5px; padding: 0; text-align: center; }
+.wrow .t.vn { font-weight: 700; }
+.wc { height: 26px; border-radius: 8px; border: 0; background: var(--bg); padding: 0; font-size: 10px; font-weight: 800; }
+.wc.free { background: var(--free); }
+.wc.booked { background: var(--booked); color: var(--booked-ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; font-weight: 700; color: var(--mute); align-items: center; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; background: var(--bg); }
+.legend i.f { background: var(--free); }
+.legend i.b { background: var(--booked); }
+
+/* lists, forms */
+.sec { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 6px 4px 0; }
+h2 { margin: 0; font-size: 16px; font-weight: 800; }
+.emo { width: 40px; height: 40px; border-radius: 13px; background: var(--soft); color: var(--accent); display: grid; place-items: center; flex: none; }
+.cls { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; }
+.cls h3 { margin: 0; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+.cls .d { color: var(--mute); font-size: 13px; overflow-wrap: anywhere; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pillbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 99px; border: 0;
+  background: var(--soft); color: var(--accent); font-weight: 800; font-size: 13.5px; text-decoration: none;
+}
+.pillbtn.danger { background: transparent; color: var(--bad); }
+.empty { color: var(--mute); padding: 14px 4px; font-size: 14px; }
+label { display: block; font-size: 12.5px; color: var(--mute); font-weight: 700; margin: 0 0 5px; }
+input, select { width: 100%; min-height: 48px; border: 2px solid var(--line); background: var(--bg); border-radius: 14px; padding: 0 14px; font-size: 16px; font-weight: 500; outline: 0; }
+input:focus, select:focus { border-color: var(--accent); }
+.field { min-width: 0; }
+.copyrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.save { width: 100%; border: 0; border-radius: 16px; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 16px; padding: 14px; }
+.save.alt { background: var(--soft); color: var(--accent); }
+.save.del { background: transparent; color: var(--bad); }
+.fab {
+  position: fixed; right: max(18px, calc(50% - 242px)); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); z-index: 8; display: inline-flex; align-items: center; gap: 8px;
+  border: 0; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 16px; padding: 14px 20px; box-shadow: 0 10px 24px rgba(59, 120, 192, .35);
+}
+
+/* floating nav */
+#nav { position: fixed; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 9; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); pointer-events: none; }
+#nav .in { pointer-events: auto; max-width: 400px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; background: var(--card); border-radius: 99px; padding: 4px; box-shadow: 0 10px 28px rgba(50, 90, 140, .18); }
+.tab { display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: none; color: var(--mute); min-height: 46px; border-radius: 99px; font-weight: 800; font-size: 12.5px; padding: 0 4px; }
+.tab[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+.tab span { display: none; }
+.tab[aria-current="page"] span { display: inline; }
+.tab .ic { width: 20px; height: 20px; }
+
+/* sheet */
+#sheet { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; background: rgba(20, 35, 55, .45); animation: fadeIn .25s ease both; }
+#sheet .back { position: absolute; inset: 0; }
+#panel {
+  position: relative; width: 100%; max-width: 520px; max-height: 90%; overflow-y: auto; overscroll-behavior: contain; background: var(--card);
+  border-radius: 26px 26px 0 0; display: grid; gap: 14px; animation: sheetUp .42s var(--ease) both;
+  padding: 20px max(18px, env(safe-area-inset-right, 0px)) calc(22px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+}
+#panel .stickyhead { position: sticky; top: -20px; border-radius: 26px 26px 0 0; z-index: 3; background: var(--card); margin: -20px -18px 0; padding: 20px 18px 12px; box-shadow: 0 8px 10px -8px rgba(20, 35, 55, .18); }
+#panel h3 { margin: 0; font-size: 18px; font-weight: 800; padding-right: 44px; }
+#panel h3 span { display: block; font-size: 13px; color: var(--mute); font-weight: 600; margin-top: 2px; }
+.sx { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--bg); color: var(--mute); display: grid; place-items: center; padding: 0; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg); border-radius: 14px; padding: 4px; gap: 2px; }
+.seg button { border: 0; background: none; color: var(--mute); font-weight: 800; padding: 11px 4px; border-radius: 11px; }
+.seg button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.seg button[aria-pressed="true"][data-v="free"] { background: var(--free); color: var(--free-ink); box-shadow: none; }
+.seg button[aria-pressed="true"][data-v="booked"] { background: var(--booked); color: var(--booked-ink); box-shadow: none; }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 30; background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-size: 13.5px; font-weight: 700; max-width: 90%; }
+
+/* drag select */
+.slot, .wc { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.slot.sel, .wc.sel { box-shadow: inset 0 0 0 3px var(--accent); }
+.slot.sel:not(.free):not(.booked), .wc.sel:not(.free):not(.booked) { background: var(--soft); }
+body.dragging { cursor: grabbing; }
+body.erase .slot.sel, body.erase .wc.sel { box-shadow: inset 0 0 0 3px var(--bad); }
+#toast button { border: 0; background: none; color: var(--free); font-weight: 800; margin-left: 12px; padding: 0; }
+.hint { margin: 0; font-size: 12.5px; color: var(--mute); font-weight: 700; }
+
+/* intro loading screen */
+body.intro-on { overflow: hidden; }
+#intro { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: var(--bg); padding: env(safe-area-inset-top, 0px) 24px env(safe-area-inset-bottom, 0px); transition: opacity .5s ease, visibility .5s; }
+#intro.out { opacity: 0; visibility: hidden; pointer-events: none; }
+.in-box { display: grid; justify-items: center; gap: 16px; text-align: center; }
+.in-logo { width: 78px; height: 78px; border-radius: 25px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 14px 34px rgba(59, 120, 192, .35); animation: introPop .75s var(--ease) both; }
+.in-logo .ic { width: 40px; height: 40px; }
+.in-title { font-size: 27px; font-weight: 800; line-height: 1.1; animation: rise .6s var(--ease) .15s backwards; }
+.in-sub { font-size: 13.5px; color: var(--mute); font-weight: 700; margin-top: -10px; animation: rise .6s var(--ease) .25s backwards; }
+.in-grid { display: grid; grid-template-columns: repeat(5, 30px); gap: 6px; margin-top: 6px; }
+.in-grid i { height: 18px; border-radius: 7px; background: var(--line); animation: cellFill .5s ease both; animation-delay: calc(.4s + var(--i) * 40ms); }
+.in-grid i.f { --c: var(--free); }
+.in-grid i.b { --c: var(--booked); }
+.in-bar { width: 170px; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 8px; }
+.in-bar b { display: block; height: 100%; background: var(--accent); border-radius: 99px; transform-origin: left; animation: introBar 1.6s cubic-bezier(.4, 0, .2, 1) both; }
+#intro.done .in-bar b { animation: none; transform: scaleX(1); }
+.in-msg { font-size: 12.5px; color: var(--mute); font-weight: 700; animation: fadeIn .6s ease .5s backwards; }
+@keyframes introPop { from { opacity: 0; transform: scale(.6) rotate(-8deg); } }
+@keyframes cellFill { from { opacity: 0; transform: scale(.6); background: var(--line); } to { opacity: 1; transform: scale(1); background: var(--c, var(--line)); } }
+@keyframes introBar { from { transform: scaleX(0); } to { transform: scaleX(.92); } }
+
+/* welcome */
+#welcome { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; overflow-y: auto; background: var(--bg); padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px)); transition: opacity .5s ease, visibility .5s; }
+#welcome.out { opacity: 0; visibility: hidden; pointer-events: none; }
+.w-box { width: 100%; max-width: 360px; display: grid; gap: 14px; text-align: center; justify-items: center; }
+#welcome:not(.show) .w-box { opacity: 0; }
+#welcome.show .w-box > * { animation: rise .6s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 90ms); }
+.w-logo { width: 72px; height: 72px; border-radius: 23px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 14px 34px rgba(59, 120, 192, .35); }
+.w-logo .ic { width: 38px; height: 38px; }
+.w-title { margin: 6px 0 0; font-size: 30px; font-weight: 800; line-height: 1.1; }
+.w-sub { margin: 0; font-size: 16px; color: var(--mute); font-weight: 700; }
+#w-name { text-align: center; font-weight: 700; font-size: 18px; margin-top: 6px; }
+#w-go { margin-top: 2px; }
+.save:disabled { opacity: .45; cursor: default; }
+
+/* HR */
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.chips .pillbtn { white-space: nowrap; flex: none; }
+.pillbtn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.slot.free .who { letter-spacing: 0; font-size: 13px; }
+.slot:disabled { cursor: default; }
+.wc[data-a] { cursor: pointer; }
+.stars { display: flex; align-items: center; gap: 0; margin: 4px 0 2px -4px; }
+.star { border: 0; background: none; padding: 4px; cursor: pointer; line-height: 0; border-radius: 10px; }
+.star .st { width: 26px; height: 26px; fill: none; stroke: var(--mute); stroke-width: 1.7; stroke-linejoin: round; transition: fill .15s ease, stroke .15s ease; }
+.star.on .st { fill: var(--star); stroke: var(--star); }
+.stars .rt { margin-left: 8px; font-size: 12.5px; font-weight: 700; color: var(--mute); }
+.tlist { display: grid; gap: 8px; }
+.trow { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; padding: 13px 14px; border-radius: 16px; border: 2px solid transparent; background: var(--soft); color: var(--ink); font: inherit; font-weight: 800; text-align: left; cursor: pointer; }
+.trow[aria-pressed="true"] { border-color: var(--accent); background: var(--card); }
+.trow:disabled { opacity: .5; cursor: default; }
+.trow .r { display: inline-flex; align-items: center; gap: 8px; color: var(--mute); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.trow .chip { padding: 3px 9px; }
+
+.asg { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 4px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; border-radius: 0; }
+.asg:first-child { border-top: 0; }
+.stusticky { position: sticky; top: 0; z-index: 6; padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+.sfilter { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+#stu-sec { scroll-margin-top: 10px; }
+.statbtn { width: 100%; border: 0; background: none; font: inherit; padding: 0; cursor: pointer; text-align: left; align-items: center; color: var(--mute); }
+.statbtn b { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+.statbtn .ic { width: 16px; height: 16px; color: var(--mute); }
+.statbtn.urgent { background: color-mix(in srgb, var(--bad) 13%, var(--card)); border-radius: 12px; padding: 9px 10px; margin: 0 -10px; width: calc(100% + 20px); color: var(--bad); }
+.statbtn.urgent > span { font-weight: 800; }
+.statbtn.urgent b { color: var(--bad); }
+.statbtn.urgent .ic { color: var(--bad); }
+.statbtn.urgent .dot { animation: urgentPulse 1.8s ease-in-out infinite; }
+@keyframes urgentPulse { 50% { opacity: .35; } }
+.statbtn:active { opacity: .7; }
+.asg .tm { display: grid; min-width: 96px; }
+.asg .tm b { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.asg small { color: var(--mute); font-size: 12px; font-weight: 700; }
+.asg .who { display: grid; min-width: 0; flex: 1; }
+.asg .who b { font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+.asg.now .tm b { color: var(--accent); }
+/* teacher detail */
+.card.click { cursor: pointer; }
+.card.click:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg.two-tabs { grid-template-columns: repeat(2, 1fr); }
+.seg button { cursor: pointer; font: inherit; font-weight: 800; }
+.shead { display: flex; align-items: center; gap: 12px; }
+.shead .unas { margin-left: auto; flex: none; align-self: flex-start; }
+.shead h3 { margin: 0; font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+.sgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; background: var(--bg); border-radius: 14px; padding: 12px 14px; }
+.sgrid span { display: block; color: var(--mute); font-size: 12px; font-weight: 700; }
+.sgrid b { display: block; font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
+.sacts { margin-top: 0; align-items: center; }
+.sacts .pillbtn { margin-left: auto; }
+.plabel { font-size: 12px; font-weight: 800; color: var(--mute); text-transform: uppercase; letter-spacing: .04em; margin: 6px 2px 0; }
+.plabel:first-child { margin-top: 0; }
+.trow .rate { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-weight: 800; }
+.trow .rate.none { color: var(--mute); font-weight: 700; }
+.trow .rate .st { width: 15px; height: 15px; fill: var(--star); stroke: var(--star); stroke-width: 1.7; stroke-linejoin: round; }
+.note.warn { background: color-mix(in srgb, var(--booked) 55%, var(--bg)); color: var(--booked-ink); }
+.note.warn .ic { color: inherit; flex: none; }
+.dls { gap: 0; }
+.dl { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+.dl:first-child { border-top: 0; }
+.dlt { display: grid; min-width: 0; }
+.dlt span { font-size: 12px; font-weight: 700; color: var(--mute); }
+.dlt b { font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
+.backbtn { justify-self: start; display: inline-flex; align-items: center; gap: 4px; border: 0; background: var(--soft); color: var(--accent); font: inherit; font-weight: 800; font-size: 13.5px; padding: 8px 14px 8px 10px; border-radius: 99px; cursor: pointer; }
+.backbtn .ic { width: 16px; height: 16px; }
+.avatar-lg { width: 56px; height: 56px; border-radius: 18px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 24px; font-weight: 800; flex: none; }
+.thead { display: flex; align-items: center; gap: 14px; }
+.thead h2 { margin: 0; font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
+.thead .stars { margin-top: 2px; }
+.chip.ok { background: color-mix(in srgb, var(--free) 22%, var(--bg)); color: var(--free-ink); }
+.rowc { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--line); }
+.rowc:first-child { border-top: 0; padding-top: 0; }
+.rowc .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.rowc b { font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+.rowc .d { color: var(--mute); font-size: 13px; overflow-wrap: anywhere; }
+
+/* motion */
+main.play > * { animation: rise .6s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
+.tabs button, .tab, .slot, .wc, .pillbtn, .save, .fab, .seg button { transition: transform .15s ease, background-color .2s ease, color .2s ease; }
+.tabs button:active, .tab:active, .slot:active, .wc:active, .pillbtn:active, .save:active, .fab:active, .seg button:active { transform: scale(.94); }
+@keyframes rise { from { opacity: 0; transform: translateY(20px); } }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes sheetUp { from { transform: translateY(100%); } }
+@media (max-width: 380px) { .two { grid-template-columns: 1fr; } .hero { gap: 12px; } .ring { width: 100px; height: 100px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; } }
+
+/* side brand is only used by the desktop sidebar */
+.side-brand { display: none; }
+
+/* ============ DESKTOP (wide screens): left sidebar, wide content, multi-column cards, centered dialogs ============ */
+@keyframes popIn { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+@media (min-width: 1024px) {
+  body { padding: 0 40px 60px 288px; font-size: 15.5px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  /* sidebar */
+  #nav { left: 20px; top: 20px; bottom: 20px; right: auto; width: 240px; padding: 18px 14px; display: flex; flex-direction: column; gap: 8px; background: var(--card); border-radius: 28px; box-shadow: var(--shadow); pointer-events: auto; }
+  #nav .in { display: flex !important; flex-direction: column; gap: 6px; max-width: none; margin: 0; padding: 0; background: none; box-shadow: none; border-radius: 0; }
+  .side-brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 18px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .side-brand .logo { width: 44px; height: 44px; }
+  .sb-t { font-size: 16px; font-weight: 800; line-height: 1.15; }
+  .sb-t small { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--mute); }
+  .tab { justify-content: flex-start; gap: 12px; min-height: 50px; padding: 0 16px; font-size: 15px; }
+  .tab span, .tab[aria-current="page"] span { display: inline; }
+  .tab .ic { width: 21px; height: 21px; }
+  .tab:hover:not([aria-current="page"]) { background: var(--soft); color: var(--accent); }
+
+  /* header */
+  .hd { padding-block: 32px 14px; }
+  .hd .logo { display: none; }
+  .gname { font-size: 30px; }
+  .gtxt small { font-size: 14px; }
+  .clock { font-size: 15px; }
+  .sync { font-size: 12px; padding: 6px 13px; }
+  #stick { top: 0; padding-block: 6px 10px; }
+
+  /* content grid */
+  main { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; align-items: start; padding-block: 8px 24px; }
+  main > .sec, main > .banner, main > .chips, main > .backbtn, main > .card.tight, main > .card:has(> p.empty) { grid-column: 1 / -1; }
+  main[data-view="day"] > .card:not(:has(> .shead)) { grid-column: 1 / -1; }
+  main[data-view="teachers"] > .card:not(.click) { grid-column: 1 / -1; }
+  main[data-view="info"] > .card:has(.copyrow) { grid-column: 1 / -1; }
+  .card { padding: 24px; border-radius: 26px; gap: 14px; }
+  .card.tight { padding: 22px; }
+  h2, .hero-title { font-size: 19px; }
+  .sec { margin: 10px 4px 0; }
+  .card.click { transition: transform .2s ease, box-shadow .2s ease; }
+  .card.click:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(50, 90, 140, .16); }
+
+  /* Month overview, teacher: ring on the left, next-class note on the right */
+  .card:has(> .hero) { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); column-gap: 40px; align-items: center; }
+  .card:has(> .hero) > .hero-head { grid-column: 1 / -1; }
+  .card:has(> .hero) > .note { align-self: center; padding: 18px 20px; font-size: 15.5px; border-radius: 18px; }
+  .ring { width: 156px; height: 156px; }
+  .ring .mid { font-size: 13px; }
+  .ring .mid b { font-size: 36px; }
+  .hero { gap: 30px; }
+  .stat { font-size: 15px; }
+  .stat b { font-size: 20px; }
+
+  /* Month overview, HR: stats become three tiles */
+  .card:has(> .hero-head) > .stats { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .card:has(> .hero-head) > .stats > .stat { flex-direction: column; align-items: flex-start; gap: 10px; background: var(--bg); border-radius: 20px; padding: 20px; }
+  .card:has(> .hero-head) > .stats > .stat b { font-size: 34px; line-height: 1; }
+  .card:has(> .hero-head) > .stats > .statbtn.urgent { margin: 0; width: 100%; background: color-mix(in srgb, var(--bad) 13%, var(--card)); }
+  .card:has(> .hero-head) > .stats > .statbtn { transition: transform .2s ease, box-shadow .2s ease; }
+  .card:has(> .hero-head) > .stats > .statbtn:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .card:has(> .hero-head) > .note { grid-column: 1 / -1; }
+
+  /* assigned students list: two columns */
+  .card:has(> .asg) { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 36px; }
+  .asg { padding: 14px 10px; border-radius: 14px; transition: background-color .2s ease; }
+  .asg:nth-child(2) { border-top: 0; }
+  .asg:hover { background: var(--bg); }
+
+  /* week grid */
+  .wgrid, .wrow { grid-template-columns: 74px 74px repeat(7, minmax(0, 1fr)); gap: 7px; }
+  .whead { padding: 12px 22px; font-size: 12px; }
+  .rows { gap: 7px; }
+  .wrow .t { font-size: 13px; }
+  .wc { height: 36px; border-radius: 11px; font-size: 13px; }
+  .legend { font-size: 13px; }
+  .hint { font-size: 13.5px; }
+  .chips { padding-bottom: 4px; }
+  @media (hover: hover) { .wc[data-a]:hover, .wc:not(:disabled):hover { filter: brightness(.95); box-shadow: inset 0 0 0 2px var(--accent); } }
+
+  /* info form: fields side by side */
+  main[data-view="info"] > .card:has(.copyrow) { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px 24px; }
+
+  /* students / teacher detail */
+  .sgrid { padding: 14px 16px; }
+  .thead h2 { font-size: 26px; }
+  .avatar-lg { width: 64px; height: 64px; font-size: 28px; }
+  .rowc { padding: 14px 0; }
+
+  /* floating action button, toast */
+  .fab { right: 40px; bottom: 36px; padding: 16px 24px; }
+  #toast { bottom: 36px; left: calc(50% + 134px); }
+
+  /* centered dialog instead of a bottom sheet */
+  #sheet { align-items: center; }
+  #panel { max-width: 580px; max-height: 86%; border-radius: 28px; padding: 28px 30px 30px; box-shadow: 0 24px 60px rgba(20, 35, 55, .35); animation: popIn .32s var(--ease) both; }
+  #panel .stickyhead { top: -28px; margin: -28px -30px 0; padding: 28px 30px 14px; border-radius: 28px 28px 0 0; }
+  #panel h3 { font-size: 20px; }
+  .sx { top: 18px; right: 18px; }
+
+  /* intro / welcome */
+  .in-logo { width: 92px; height: 92px; border-radius: 30px; }
+  .in-title { font-size: 34px; }
+  .w-box { max-width: 420px; }
+  .w-title { font-size: 36px; }
+}
+@media (min-width: 1600px) {
+  body { padding-right: 56px; }
+  .wrap { max-width: 1280px; }
+  main { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+}
+
+/* badge logo (replaces the old calendar icon in every logo spot) */
+.logo-img { display: block; width: 100%; height: 100%; background: url("icons/icon-192.png") center / contain no-repeat; }
+.logo, .in-logo, .w-logo { background: transparent !important; box-shadow: none !important; overflow: visible; }
+.logo { width: 46px; height: 46px; border-radius: 0; }
+.in-logo { width: 104px; height: 104px; border-radius: 0; filter: drop-shadow(0 10px 18px rgba(3, 55, 110, .25)); }
+.w-logo { width: 92px; height: 92px; border-radius: 0; filter: drop-shadow(0 10px 18px rgba(3, 55, 110, .25)); }
+@media (min-width: 1024px) { .side-brand .logo { width: 52px; height: 52px; } .in-logo { width: 128px; height: 128px; } .w-logo { width: 104px; height: 104px; } }
+</style>
+
+<div id="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="w-title">
+  <div class="w-box">
+    <div class="w-logo" style="--i:0"><span class="logo-img" role="img" aria-label="Teacher Schedule"></span></div>
+    <h2 class="w-title" id="w-title" style="--i:1">Welcome Teacher</h2>
+    <p class="w-sub" style="--i:2">Tell me your name</p>
+    <input id="w-name" style="--i:3" type="text" placeholder="Your name" autocomplete="given-name" maxlength="40" enterkeyhint="done" aria-label="Your name">
+    <button class="save" id="w-go" style="--i:4" data-a="welcome-go" disabled>Continue</button>
+  </div>
+</div>
+<div id="intro" role="status" aria-live="polite" aria-label="Loading">
+  <div class="in-box">
+    <div class="in-logo"><span class="logo-img" role="img" aria-label="Teacher Schedule"></span></div>
+    <div class="in-title">Teacher Schedule</div>
+    <div class="in-sub" id="in-who"></div>
+    <div class="in-grid" id="in-grid" aria-hidden="true"></div>
+    <div class="in-bar" aria-hidden="true"><b></b></div>
+    <div class="in-msg">Getting your week ready…</div>
+  </div>
+</div>
+<div class="wrap">
+  <header class="hd">
+    <h1><span class="logo"><span class="logo-img" role="img" aria-label="Teacher Schedule"></span></span><span class="gtxt"><small id="greet">Good Morning</small><span id="who" class="gname"></span></span></h1>
+    <span class="hdr"><span class="clock" id="clock" role="timer" aria-label="Philippines time"></span><span class="sync" id="sync" aria-live="polite"></span></span>
+  </header>
+</div>
+<div class="wrap" id="stick"></div>
+<div class="wrap"><main id="view"></main></div>
+<button class="fab" id="fab" data-a="class-add" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Add class</button>
+<nav id="nav" aria-label="Sections"><div class="side-brand" aria-hidden="true"><span class="logo"><span class="logo-img" role="img" aria-label="Teacher Schedule"></span></span><span class="sb-t">Teacher Schedule<small>PH &middot; VN time</small></span></div><div class="in" id="navin"></div></nav>
+<div id="sheet" hidden>
+  <div class="back" data-a="sheet-close"></div>
+  <div id="panel" role="dialog" aria-modal="true" aria-label="Edit" tabindex="-1"></div>
+</div>
+<div id="toast" hidden role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+  var DAYS = ['MON', 'TUES', 'WED', 'THURS', 'FRI', 'SAT', 'SUN'];
+  var DAYFULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  var N = 30, START = 540, LS = 'teacher-schedule-v1';
+  var view = 'day', day = (new Date().getDay() + 6) % 7;
+  var state = null, ref = null, dirty = false, writing = false, timer = null, seeded = false, syncMode = 'device';
+  var sh = {}, lastFocus = null, confirmClear = false;
+  var USE_LOCAL = true; /* true: everything is saved in this browser's localStorage. false: use the shared claude.ai database. */
+  var newT = '', acctList = [], acctJson = '', ratings = {};
+  var STAR = '<svg class="st" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z"/></svg>';
+  var SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var dbP = null, unsubs = [], curId = null, curRole = null, roster = {}, assigns = {}, myAssign = { slots: {} }, hrLive = false, hrSel = 'all', connTok = 0, hrTeacher = null, hrTab = 'assigned', hrStu = 'unassigned', hrStuDay = null;
+
+  function $(s) { return document.querySelector(s); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function tm(min) { var h = Math.floor(min / 60) % 24, m = min % 60; return { t: (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m, s: h >= 12 ? 'PM' : 'AM' }; }
+  function ph(i) { return tm(START + 30 * i); }
+  function vn(i) { return tm(START + 30 * i - 60); }
+  function safeUrl(u) {
+    u = (u || '').trim(); if (!u) return '';
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    try { var x = new URL(u); return (x.protocol === 'http:' || x.protocol === 'https:') ? x.href : ''; } catch (e) { return ''; }
+  }
+
+  /* ---------- roles ---------- */
+  function isHRName(n) { return String(n || '').trim().toLowerCase() === 'reizsa'; }
+  function isHR() { return isHRName(state && state.profile && state.profile.teacher); }
+  function slug(n) { return String(n || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'teacher'; }
+  function teacherId() { return slug(state.profile.teacher); }
+  function whoText() { return ((isHR() ? 'HR ' : 'Teacher ') + (state.profile.teacher || '')).trim(); }
+
+  /* ---------- data ---------- */
+  function blank() { return { v: 1, welcomed: false, profile: { teacher: '', email: '', zoom: '' }, slots: {}, classes: [], sample: false }; }
+  function normalize(o) {
+    var b = blank();
+    if (!o || typeof o !== 'object') return b;
+    b.profile = Object.assign(b.profile, o.profile || {});
+    b.slots = (o.slots && typeof o.slots === 'object') ? o.slots : {};
+    b.classes = Array.isArray(o.classes) ? o.classes : [];
+    if (o.sample) { b.slots = {}; b.classes = []; }
+    b.sample = false;
+    if (o.welcomed == null && b.profile.teacher === 'Jhave') b.profile.teacher = '';
+    if (!o.welcomed && b.profile.email === 'ljhave24@gmail.com') b.profile.email = '';
+    b.welcomed = (o.welcomed != null) ? !!o.welcomed : !!b.profile.teacher;
+    return b;
+  }
+  function localGet() { try { var r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  function localSet() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
+
+  function setSync(m) { syncMode = m; var el = $('#sync'); if (el) el.textContent = ({ saving: 'Saving…', saved: USE_LOCAL ? 'Saved on device' : 'Saved', live: USE_LOCAL ? 'On this device' : 'Live', device: 'This device', error: 'Not saved' })[m] || ''; }
+  function queueSave() { dirty = true; setSync('saving'); clearTimeout(timer); timer = setTimeout(flush, 500); }
+  async function flush() {
+    if (writing) return;
+    writing = true; dirty = false; localSet();
+    if (ref) {
+      try { await ref.set(JSON.parse(JSON.stringify(state))); setSync(dirty ? 'saving' : 'saved'); }
+      catch (e) { setSync('error'); toast('Could not save online. Kept on this device.'); }
+    } else { setSync(hrLive ? 'live' : 'device'); }
+    writing = false;
+    if (dirty) flush();
+  }
+
+  /* ---------- helpers ---------- */
+  function slot(d, i) {
+    var a = myAssign.slots[d + '_' + i];
+    if (a) return { s: 'booked', n: a.n, r: a.r, hr: true };
+    return state.slots[d + '_' + i];
+  }
+  function counts(d) { var f = 0, b = 0, i, s; for (i = 0; i < N; i++) { s = slot(d, i); if (s) { if (s.s === 'free') f++; else b++; } } return { f: f, b: b }; }
+  function nowIdx() { var n = new Date(), m = n.getHours() * 60 + n.getMinutes(), i = Math.floor((m - START) / 30); return (i >= 0 && i < N) ? i : -1; }
+  function todayIdx() { return (new Date().getDay() + 6) % 7; }
+  function toast(msg) { var t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 2200); }
+
+  /* ---------- render ---------- */
+  var ICONS = {
+    day: '<svg class=\"ic\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"3\"/><path d=\"M16 2v4M8 2v4M3 10h18\"/></svg>',
+    week: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17M9 9.5v11M15 9.5v11"/></svg>',
+    classes: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10"/></svg>',
+    teachers: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-4 9 4-9 4z"/><path d="M7 11.2V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-3.8"/><path d="M21 9v5"/></svg>',
+    students: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3"/><path d="M3.5 19c.6-3 2.9-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/><circle cx="17" cy="9.5" r="2.4"/><path d="M16.5 14.6c2.3.1 3.8 1.4 4.3 3.9"/></svg>',
+    info: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>',
+    ok: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10-3-3"/></svg>',
+    x: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    bell: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    book: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10"/></svg>'
+  };
+  var TABS = [['day', 'Month'], ['week', 'Week'], ['classes', 'Classes'], ['info', 'Info']];
+  var HRTABS = [['day', 'Month'], ['week', 'Week'], ['teachers', 'Teachers'], ['info', 'Info']];
+
+  function renderNav() {
+    var tabs = isHR() ? HRTABS : TABS;
+    $('#navin').style.gridTemplateColumns = 'repeat(' + tabs.length + ', 1fr)';
+    $('#navin').innerHTML = tabs.map(function (t) {
+      return '<button class="tab" data-a="nav" data-v="' + t[0] + '" aria-label="' + t[1] + '"' + (view === t[0] ? ' aria-current="page"' : '') + '>' + ICONS[t[0]] + '<span>' + t[1] + '</span></button>';
+    }).join('');
+    $('#fab').hidden = view !== 'classes' || isHR();
+  }
+  function renderTop() {
+    var hr = new Date().getHours();
+    $('#greet').textContent = hr < 12 ? 'Good Morning' : hr < 18 ? 'Good Afternoon' : 'Good Evening';
+    $('#who').textContent = whoText();
+    setSync(syncMode);
+    var h = '';
+    if (view === 'day') {
+      h = '';
+    } else if (view === 'week') {
+      h = '<div class="whead wgrid"><span>PH</span><span>VN</span>' + DAYS.map(function (d) { return '<span>' + d + '</span>'; }).join('') + '</div>';
+    }
+    $('#stick').innerHTML = h;
+  }
+  function bannerHtml() {
+    if (!state.sample) return '';
+    return '<div class="banner"><span>Example availability is loaded so you can see how it works.</span><button class="link" data-a="clear-sample">Clear examples</button></div>';
+  }
+  function ringSvg(f, b) {
+    var C = 2 * Math.PI * 52, lf = f / N * C, lb = b / N * C;
+    function seg(len, off, col) { return len > 0 ? '<circle cx="64" cy="64" r="52" fill="none" stroke="' + col + '" stroke-width="13" stroke-dasharray="' + len + ' ' + (C - len) + '" stroke-dashoffset="' + (-off) + '"/>' : ''; }
+    return '<svg viewBox="0 0 128 128" aria-hidden="true"><circle cx="64" cy="64" r="52" fill="none" stroke="var(--line)" stroke-width="13"/>' + seg(lf, 0, 'var(--ring-free)') + seg(lb, lf, 'var(--ring-book)') + '</svg>';
+  }
+  function nextFreeNote(c) {
+    var from = (day === todayIdx() && nowIdx() >= 0) ? nowIdx() : 0, i;
+    if (!c.f) return 'No free slots set for ' + DAYFULL[day] + ' yet.';
+    for (i = from; i < N; i++) { var s = slot(day, i); if (s && s.s === 'free') return 'Next free: ' + ph(i).t + ' ' + ph(i).s + ' PH · ' + vn(i).t + ' ' + vn(i).s + ' VN'; }
+    return 'No more free slots left today.';
+  }
+  /* How many times each weekday occurs in the current month (0 = Mon). The schedule repeats weekly. */
+  function monthOcc() {
+    var n = new Date(), dim = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(), occ = [0, 0, 0, 0, 0, 0, 0], k;
+    for (k = 1; k <= dim; k++) occ[(new Date(n.getFullYear(), n.getMonth(), k).getDay() + 6) % 7]++;
+    return { occ: occ, dim: dim, title: n.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) };
+  }
+  function sameGrp(q, x) { return q && q.s === 'booked' && (q.n || '') === (x.n || '') && (q.r || '') === (x.r || '') && !!q.hr === !!x.hr; }
+  /* Teacher's classes for one weekday, merged into ranges. */
+  function classGroups(d) {
+    var out = [], i, x, g;
+    for (i = 0; i < N; i++) {
+      x = slot(d, i);
+      if (x && x.s === 'booked') {
+        g = out[out.length - 1];
+        if (g && g.i1 === i - 1 && sameGrp(slot(d, i - 1), x)) g.i1 = i;
+        else out.push({ d: d, n: x.n, r: x.r, hr: x.hr, i0: i, i1: i });
+      }
+    }
+    return out;
+  }
+  function nextClassNote() {
+    var now = new Date(), m = now.getHours() * 60 + now.getMinutes(), t0 = todayIdx(), off, d, gs, g, k, from, lab, any = false;
+    for (off = 0; off < 7; off++) {
+      d = (t0 + off) % 7; gs = classGroups(d);
+      if (gs.length) any = true;
+      from = (off === 0 && m >= START) ? Math.floor((m - START) / 30) + 1 : 0;
+      for (k = 0; k < gs.length; k++) {
+        g = gs[k];
+        if (g.i0 >= from) {
+          lab = off === 0 ? 'Today' : off === 1 ? 'Tomorrow' : DAYFULL[d];
+          return 'Next class: ' + lab + ' · ' + ph(g.i0).t + ' ' + ph(g.i0).s + ' PH · ' + vn(g.i0).t + ' ' + vn(g.i0).s + ' VN · ' + (g.n || 'Student');
+        }
+      }
+    }
+    return any ? 'No more classes today.' : 'No assigned classes yet.';
+  }
+  function dayMain() {
+    var mo = monthOcc(), d, f = 0, b = 0, cs, all = [], total = 0, h = bannerHtml(), ni = nowIdx();
+    for (d = 0; d < 7; d++) {
+      cs = counts(d); f += mo.occ[d] * cs.f; b += mo.occ[d] * cs.b;
+      classGroups(d).forEach(function (g) { all.push(g); total += mo.occ[d]; });
+    }
+    h += '<div class="card"><div class="hero-head"><span class="hero-title">This Month</span><span class="chip">' + esc(mo.title) + '</span></div>' +
+      '<div class="hero"><div class="ring">' + ringSvg(f / mo.dim, b / mo.dim) + '<div class="mid"><b>' + total + '</b>classes</div></div>' +
+      '<div class="stats"><div class="stat"><span><i class="dot" style="background:var(--ring-free)"></i>Free slots</span><b>' + f + '</b></div>' +
+      '<div class="stat"><span><i class="dot" style="background:var(--ring-book)"></i>Booked slots</span><b>' + b + '</b></div>' +
+      '<div class="stat"><span><i class="dot" style="background:var(--line)"></i>Not set</span><b>' + (N * mo.dim - f - b) + '</b></div></div></div>' +
+      '<div class="note">' + ICONS.ok + '<span>' + nextClassNote() + '</span></div></div>';
+    h += '<div class="sec"><h2>Assigned students</h2><span class="chip">' + total + ' class' + (total === 1 ? '' : 'es') + ' this month</span></div>';
+    if (!all.length) return h + '<div class="card"><p class="empty" style="margin:0">No assigned students yet. Set your free times in the Week tab so HR can assign you.</p></div>';
+    h += '<div class="card">' + all.map(function (x) {
+      var a = ph(x.i0), e = tm(START + 30 * (x.i1 + 1)), va = vn(x.i0), vb = tm(START + 30 * (x.i1 + 1) - 60), live = x.d === todayIdx() && ni >= x.i0 && ni <= x.i1;
+      return '<button class="asg' + (live ? ' now' : '') + '" data-a="asg-open" data-d="' + x.d + '" data-i="' + x.i0 + '"><span class="tm"><b>' + SHORT[x.d] + ' ' + a.t + ' ' + a.s + '</b><small>to ' + e.t + ' ' + e.s + ' PH</small></span>' +
+        '<span class="who"><b>' + esc(x.n || 'Student') + '</b><small>' + esc([x.r, 'VN ' + va.t + ' ' + va.s + ' to ' + vb.t + ' ' + vb.s, x.hr ? 'Assigned by HR' : ''].filter(Boolean).join(' · ')) + '</small></span>' +
+        (live ? '<span class="chip">Now</span>' : '') + '</button>';
+    }).join('') + '</div>';
+    return h;
+  }
+  function weekMain() {
+    var h = bannerHtml(), i, d, s, p, v;
+    h += '<div class="card tight"><div class="legend"><span><i class="f"></i>Free</span><span><i class="b"></i>Booked</span><span><i></i>Not set</span></div><p class="hint">Drag across empty cells to open a block, or across open cells to remove them. On a phone, press and hold first.</p><div class="rows">';
+    for (i = 0; i < N; i++) {
+      p = ph(i); v = vn(i);
+      h += '<div class="wrow"><span class="t ph">' + p.t + '</span><span class="t vn">' + v.t + '</span>';
+      for (d = 0; d < 7; d++) {
+        s = slot(d, i);
+        var lab = DAYFULL[d] + ' ' + p.t + ' ' + p.s;
+        if (s && s.s === 'free') h += '<button class="wc free" data-a="slot" data-d="' + d + '" data-i="' + i + '" aria-label="' + lab + ' free"></button>';
+        else if (s) h += '<button class="wc booked" data-a="slot" data-d="' + d + '" data-i="' + i + '" aria-label="' + lab + ' booked">' + esc((s.n || 'B').charAt(0).toUpperCase()) + '</button>';
+        else h += '<button class="wc" data-a="slot" data-d="' + d + '" data-i="' + i + '" aria-label="' + lab + ' not set"></button>';
+      }
+      h += '</div>';
+    }
+    return h + '</div></div>';
+  }
+  function classesMain() {
+    var h = bannerHtml(), hg = groupList({ self: myAssign.slots });
+    if (hg.length) {
+      h += '<div class="sec"><h2>Assigned by HR</h2></div>' + hg.map(function (g) {
+        return '<div class="card"><div class="cls"><div class="emo"><b>' + esc((g.n || '?').charAt(0).toUpperCase()) + '</b></div><div><h3>' + esc(g.n || 'Student') + '</h3><div class="d">' +
+          esc([dayText(g.days), timeText(g) + ' PH', g.r].filter(Boolean).join(' · ')) + '</div></div></div></div>';
+      }).join('');
+    }
+    h += '<div class="sec"><h2>Regular classes</h2></div>';
+    if (!state.classes.length) return h + '<div class="card"><p class="empty" style="margin:0">No regular classes yet. Tap Add class to enter the room, student, book and book link.</p></div>';
+    h += state.classes.map(function (c, i) {
+      var u = safeUrl(c.link), ini = (c.student || '?').charAt(0).toUpperCase();
+      return '<div class="card"><div class="cls"><div class="emo"><b>' + esc(ini) + '</b></div><div><h3>' + esc(c.student || 'Unnamed student') + '</h3><div class="d">' +
+        esc([c.room, c.book].filter(Boolean).join(' · ')) + '</div><div class="acts">' +
+        (u ? '<a class="pillbtn" href="' + esc(u) + '" target="_blank" rel="noopener">' + ICONS.book + 'Book link</a>' : '') +
+        '<button class="pillbtn" data-a="class-edit" data-i="' + i + '">Edit</button></div></div></div></div>';
+    }).join('');
+    return h;
+  }
+  function infoMain() {
+    var p = state.profile, zu = safeUrl(p.zoom);
+    function row(id, label, val, open) {
+      return '<div class="field"><label for="' + id + '">' + label + '</label><div class="copyrow"><input id="' + id + '" type="text" value="' + esc(val) + '" autocomplete="off">' +
+        '<button class="pillbtn" data-a="copy" data-v="' + id + '">Copy</button>' + (open ? '<a class="pillbtn" href="' + esc(open) + '" target="_blank" rel="noopener">Open</a>' : '<span></span>') + '</div></div>';
+    }
+    return bannerHtml() + '<div class="sec"><h2>Teacher info</h2></div>' +
+      '<div class="card">' + row('i-teacher', isHR() ? 'Name' : 'Teacher', p.teacher) + row('i-email', 'Email', p.email) + (isHR() ? '' : row('i-zoom', 'Zoom link', p.zoom, zu)) + '</div>' +
+      '<div class="card"><div class="hero-title">Legend</div><div class="legend"><span><i class="f"></i>Blue is free</span><span><i class="b"></i>Peach is booked</span><span><i></i>Not set</span></div>' +
+      '<div class="stat" style="display:block">PH is the main clock, 9:00 AM to 11:30 PM in 30 minute slots. VN shows one hour earlier.</div></div>' +
+      '<div class="card"><div class="hero-title">Reset</div><div class="stat" style="display:block">Removes every slot, class and info field from this schedule.</div><button class="save del" data-a="clear-all">' + (confirmClear ? 'Tap again to clear everything' : 'Clear everything') + '</button></div>' +
+      '<div class="card"><div class="hero-title">Test teachers</div><div class="stat" style="display:block">For testing. Switch between accounts, or add a teacher with sample free slots so HR can assign them. Leave the name empty to pick one automatically.</div>' +
+      '<div class="field"><label>Switch account</label><div class="pick">' + acctChips() + '</div></div>' +
+      '<div class="field"><label>Placeholder teachers</label>' + placeholderChips() + '</div>' +
+      '<div class="field"><label for="i-newt">Teacher name (optional)</label><input id="i-newt" type="text" autocomplete="off" maxlength="40" value="' + esc(newT) + '"></div>' +
+      '<button class="save alt" data-a="add-teacher">Add new teacher</button><button class="save del" data-a="remove-tests">Remove test teachers</button></div>';
+  }
+  function render(anim) {
+    if (view === 'students' || (view === 'teachers' && !isHR()) || (view === 'classes' && isHR())) view = 'day';
+    renderTop(); renderNav();
+    var m = $('#view');
+    m.setAttribute('data-view', view);
+    var hr = isHR();
+    m.innerHTML = view === 'day' ? (hr ? hrDay() : dayMain()) : view === 'week' ? (hr ? hrWeek() : weekMain()) : view === 'classes' ? (hr ? hrAssigned() : classesMain()) : view === 'students' ? hrStudents() : view === 'teachers' ? hrTeachers() : infoMain();
+    if (view === 'info') refreshAccts();
+    if (anim) {
+      Array.prototype.forEach.call(m.children, function (k, i) { k.style.setProperty('--i', i); });
+      m.classList.add('play'); clearTimeout(render._t); render._t = setTimeout(function () { m.classList.remove('play'); }, 1000);
+    }
+  }
+
+  /* ---------- HR ---------- */
+  var PLACEHOLDER_TEACHERS = ['Ana', 'Ben', 'Carla', 'Diego', 'Eli', 'Faye'];
+  function tname(t) {
+    var r = roster[t], i;
+    if (r && r.profile && r.profile.teacher) return r.profile.teacher;
+    for (i = 0; i < PLACEHOLDER_TEACHERS.length; i++) if (slug(PLACEHOLDER_TEACHERS[i]) === t) return PLACEHOLDER_TEACHERS[i];
+    return t;
+  }
+  function tids() {
+    return Object.keys(roster).filter(function (t) { var n = roster[t].profile.teacher; return n && !isHRName(n); })
+      .sort(function (a, b) { return tname(a).localeCompare(tname(b)); });
+  }
+  function effSlot(t, d, i) {
+    var key = d + '_' + i, a = assigns[t] && assigns[t].slots && assigns[t].slots[key];
+    if (a) return { s: 'booked', n: a.n, r: a.r, hr: true };
+    var r = roster[t]; return r && r.slots ? r.slots[key] : null;
+  }
+  function freeAt(d, i) { return tids().filter(function (t) { var x = effSlot(t, d, i); return x && x.s === 'free'; }); }
+  function namesText(list) {
+    var n = list.map(tname); return n.length > 2 ? n[0] + ', ' + n[1] + ' +' + (n.length - 2) : n.join(', ');
+  }
+  function dayText(days) {
+    var a = Object.keys(days).map(Number).sort(function (x, y) { return x - y; });
+    if (a.length === 7) return 'Every day';
+    var run = a.every(function (v, j) { return j === 0 || v === a[j - 1] + 1; });
+    if (a.length > 2 && run) return SHORT[a[0]] + ' to ' + SHORT[a[a.length - 1]];
+    return a.map(function (x) { return SHORT[x]; }).join(', ');
+  }
+  function timeText(g) { var a = ph(g.i0), b = tm(START + 30 * (g.i1 + 1)); return a.t + ' ' + a.s + ' to ' + b.t + ' ' + b.s; }
+  function groupList(map) {
+    var g = {}, out = [];
+    Object.keys(map).forEach(function (t) {
+      var sl = map[t] || {};
+      Object.keys(sl).forEach(function (k) {
+        var c = sl[k], gid = c.g || k, id = t + '|' + gid, a = k.split('_'), d = parseInt(a[0], 10), i = parseInt(a[1], 10), x = g[id];
+        if (!x) { x = g[id] = { tid: t, gid: gid, n: c.n, r: c.r, days: {}, i0: i, i1: i }; out.push(x); }
+        x.days[d] = 1; if (i < x.i0) x.i0 = i; if (i > x.i1) x.i1 = i;
+      });
+    });
+    return out.sort(function (a, b) { return String(a.n || '').localeCompare(String(b.n || '')); });
+  }
+  function openAvail() {
+    var d = todayIdx(), rows = [], body;
+    tids().forEach(function (t) {
+      var rs = [], i, x, cur = null, n = 0;
+      for (i = 0; i < N; i++) {
+        x = effSlot(t, d, i);
+        if (x && x.s === 'free') { n++; if (cur && cur.i1 === i - 1) cur.i1 = i; else { cur = { i0: i, i1: i }; rs.push(cur); } }
+      }
+      if (rs.length) rows.push({ t: t, rs: rs, n: n });
+    });
+    body = rows.length ? '<div class="card tight">' + rows.map(function (o) {
+      return '<div class="rowc"><div class="top"><b>' + esc(tname(o.t)) + '</b><span class="chip">' + o.n + ' slot' + (o.n === 1 ? '' : 's') + '</span></div>' +
+        o.rs.map(function (r) {
+          var a = ph(r.i0), e = tm(START + 30 * (r.i1 + 1)), va = vn(r.i0), vb = tm(START + 30 * (r.i1 + 1) - 60);
+          return '<div class="d">PH ' + a.t + ' ' + a.s + ' to ' + e.t + ' ' + e.s + ' · VN ' + va.t + ' ' + va.s + ' to ' + vb.t + ' ' + vb.s + '</div>';
+        }).join('') + '</div>';
+    }).join('') + '</div>' : '<div class="card"><p class="empty" style="margin:0">No teachers have opened time slots today.</p></div>';
+    sh = { kind: 'info' };
+    openSheet('<div class="stickyhead"><h3>Available teachers today<span>' + DAYFULL[d] + ' · ' + rows.length + ' teacher' + (rows.length === 1 ? '' : 's') + ' with open time slots</span></h3></div>' + body);
+    var hd = $('#panel .stickyhead'), xb = $('#panel .sx'); if (hd && xb) hd.appendChild(xb);
+  }
+  function hrDay() {
+    var ts = tids(), h = bannerHtml(), mo = monthOcc(), d = todayIdx(), i, avail = 0, un = 0, as, m = {}, names = {};
+    ts.forEach(function (t) { for (i = 0; i < N; i++) { var x = effSlot(t, d, i); if (x && x.s === 'free') { avail++; break; } } });
+    Object.keys(assigns).forEach(function (t) {
+      m[t] = assigns[t].slots || {};
+      Object.keys(m[t]).forEach(function (k) { names[String(m[t][k].n || '').toLowerCase()] = 1; });
+    });
+    as = groupList(m).filter(function (g) { return g.days[d]; }).length;
+    STUDENTS.forEach(function (st) { if (st.day === d && !names[st.n.toLowerCase()]) un++; });
+    h += '<div class="card"><div class="hero-head"><span class="hero-title">This Month</span><span class="chip">' + esc(mo.title) + '</span></div>' +
+      '<div class="stats"><button class="stat statbtn" data-a="hr-avail" aria-label="Show available teachers today"><span><i class="dot" style="background:var(--ring-free)"></i>Available teachers today</span><b>' + avail + '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></b></button>' +
+      '<button class="stat statbtn' + (un > 0 ? ' urgent' : '') + '" data-a="hr-un-today" aria-label="Show unassigned classes today' + (un > 0 ? ', needs assigning' : '') + '"><span><i class="dot" style="background:' + (un > 0 ? 'var(--bad)' : 'var(--line)') + '"></i>Unassigned classes today</span><b>' + un + '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></b></button>' +
+      '<button class="stat statbtn" data-a="hr-as-today" aria-label="Show assigned classes today"><span><i class="dot" style="background:var(--ring-book)"></i>Assigned classes today</span><b>' + as + '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></b></button></div>' +
+      (ts.length ? '' : '<div class="note">' + ICONS.ok + '<span>No teachers yet. They appear here once they enter their name and open slots.</span></div>') + '</div>';
+    return h + hrStudents(hrStuDay);
+  }
+  function hrWeek() {
+    var ts = tids(), h = bannerHtml(), i, d, p, v, f, x, max = ts.length || 1, lab;
+    if (hrSel !== 'all' && ts.indexOf(hrSel) < 0) hrSel = 'all';
+    h += '<div class="chips" role="group" aria-label="Teacher filter"><button class="pillbtn" data-a="hr-filter" data-v="all" aria-pressed="' + (hrSel === 'all') + '">All teachers</button>' +
+      ts.map(function (t) { return '<button class="pillbtn" data-a="hr-filter" data-v="' + esc(t) + '" aria-pressed="' + (hrSel === t) + '">' + esc(tname(t)) + '</button>'; }).join('') + '</div>';
+    h += '<div class="card tight"><div class="legend">' + (hrSel === 'all' ? '<span><i class="f"></i>Number of teachers free</span>' : '<span><i class="f"></i>Free</span><span><i class="b"></i>Assigned or booked</span>') + '<span><i></i>Not set</span></div><div class="rows">';
+    for (i = 0; i < N; i++) {
+      p = ph(i); v = vn(i);
+      h += '<div class="wrow"><span class="t ph">' + p.t + '</span><span class="t vn">' + v.t + '</span>';
+      for (d = 0; d < 7; d++) {
+        lab = DAYFULL[d] + ' ' + p.t + ' ' + p.s;
+        if (hrSel === 'all') {
+          f = freeAt(d, i).length;
+          if (f) h += '<button class="wc free" style="background:color-mix(in srgb, var(--free) ' + Math.round(30 + 70 * f / max) + '%, var(--bg));color:var(--free-ink)" data-a="hr-cell" data-d="' + d + '" data-i="' + i + '" aria-label="' + lab + ', ' + f + ' free">' + f + '</button>';
+          else h += '<button class="wc" disabled aria-label="' + lab + ', none free"></button>';
+        } else {
+          x = effSlot(hrSel, d, i);
+          if (x && x.s === 'free') h += '<button class="wc free" data-a="hr-cell" data-d="' + d + '" data-i="' + i + '" aria-label="' + lab + ' free"></button>';
+          else if (x) h += '<button class="wc booked" data-a="hr-info" data-d="' + d + '" data-i="' + i + '" aria-label="' + lab + ' booked">' + esc((x.n || 'B').charAt(0).toUpperCase()) + '</button>';
+          else h += '<button class="wc" disabled aria-label="' + lab + ' not set"></button>';
+        }
+      }
+      h += '</div>';
+    }
+    return h + '</div></div>';
+  }
+  function hrAssigned() {
+    var m = {}, list, h = bannerHtml();
+    Object.keys(assigns).forEach(function (t) { m[t] = assigns[t].slots; });
+    list = groupList(m);
+    h += '<div class="sec"><h2>Assigned classes</h2></div>';
+    if (!list.length) return h + '<div class="card"><p class="empty" style="margin:0">No assignments yet. On the Day tab, tap a time to put a teacher on a student.</p></div>';
+    return h + list.map(function (g) {
+      return '<div class="card"><div class="cls"><div class="emo"><b>' + esc((g.n || '?').charAt(0).toUpperCase()) + '</b></div><div><h3>' + esc(g.n || 'Student') + '</h3><div class="d">' +
+        esc(['Teacher ' + tname(g.tid), dayText(g.days), timeText(g) + ' PH', g.r].filter(Boolean).join(' · ')) + '</div><div class="acts">' +
+        '<button class="pillbtn danger" data-a="unassign" data-t="' + esc(g.tid) + '" data-g="' + esc(g.gid) + '">Unassign</button></div></div></div></div>';
+    }).join('');
+  }
+  async function setRating(t, n) {
+    var d;
+    if ((ratings[t] || 0) === n) n = 0;
+    if (n) ratings[t] = n; else delete ratings[t];
+    render();
+    d = await getDb();
+    if (!d) { toast('Not saved. Storage is unavailable.'); return; }
+    try { await d.doc('hr/ratings').set({ r: ratings, by: state.profile.teacher || '' }); }
+    catch (e) { toast('Could not save the rating'); }
+  }
+  /* Placeholder classes for the teacher detail page. Deterministic per teacher so it doesn't change on every render. */
+  var PH_BOOKS = ['Phonics Level 1', 'Everyday English 2', 'Story Time Readers', 'Grammar Basics', 'Speaking Practice', 'Reading Club B'];
+  function phClasses(t, kind) {
+    var seed = 0, k, out = [], count = kind === 'done' ? 5 : 3, names = STUDENTS.map(function (x) { return x.n; }), dt;
+    for (k = 0; k < t.length; k++) seed += t.charCodeAt(k);
+    for (k = 0; k < count; k++) {
+      dt = new Date(); dt.setDate(dt.getDate() - (k * 2 + 1));
+      out.push({
+        n: names[(seed + k * 3 + (kind === 'done' ? 1 : 0)) % names.length],
+        book: PH_BOOKS[(seed + k + (kind === 'done' ? 2 : 0)) % PH_BOOKS.length],
+        day: (seed + k * 2) % 5, i: 8 + ((seed + k * 5) % 16),
+        date: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      });
+    }
+    return out;
+  }
+  function hrTeacherDetail() {
+    var t = hrTeacher, name = tname(t), r = ratings[t] || 0, h = bannerHtml(), realG, assigned, usingPh = false, done = phClasses(t, 'done');
+    realG = groupList(assigns[t] && assigns[t].slots ? (function () { var o = {}; o[t] = assigns[t].slots; return o; })() : {});
+    if (realG.length) assigned = realG.map(function (g) {
+      return { n: g.n || 'Student', meta: [dayText(g.days), timeText(g) + ' PH', g.r].filter(Boolean).join(' · ') };
+    });
+    else {
+      usingPh = true;
+      assigned = phClasses(t, 'todo').map(function (c) {
+        var a = ph(c.i), b = tm(START + 30 * (c.i + 1));
+        return { n: c.n, meta: [DAYFULL[c.day], a.t + ' ' + a.s + ' to ' + b.t + ' ' + b.s + ' PH', c.book].join(' · ') };
+      });
+    }
+    h += '<button class="backbtn" data-a="hr-teacher-back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>All teachers</button>';
+    h += '<div class="card"><div class="thead"><div class="avatar-lg">' + esc(name.charAt(0).toUpperCase()) + '</div><div><h2>' + esc(name) + '</h2>' +
+      '<div class="stars" role="group" aria-label="Rating for ' + esc(name) + '">' + [1, 2, 3, 4, 5].map(function (n) {
+        return '<button class="star' + (n <= r ? ' on' : '') + '" data-a="rate" data-t="' + esc(t) + '" data-n="' + n + '" aria-label="' + n + ' star' + (n > 1 ? 's' : '') + '" aria-pressed="' + (n === r) + '">' + STAR + '</button>';
+      }).join('') + '<span class="rt">' + (r ? r + ' of 5' : 'Not rated') + '</span></div></div></div>' +
+      '<div class="stats"><div class="stat"><span><i class="dot" style="background:var(--accent)"></i>Assigned classes</span><b>' + assigned.length + '</b></div>' +
+      '<div class="stat"><span><i class="dot" style="background:var(--free)"></i>Completed classes</span><b>' + done.length + '</b></div></div></div>';
+    var isDone = hrTab === 'done';
+    h += '<div class="card"><div class="seg two-tabs" role="group" aria-label="Class list">' +
+      '<button data-a="hr-tclass-tab" data-v="assigned" aria-pressed="' + !isDone + '">Assigned classes</button>' +
+      '<button data-a="hr-tclass-tab" data-v="done" aria-pressed="' + isDone + '">Completed classes</button></div>' +
+      ((isDone || usingPh) ? '<div><span class="chip">Sample data</span></div>' : '') +
+      '<div>' + (isDone ? done.map(function (c) {
+        var a = ph(c.i), b = tm(START + 30 * (c.i + 1));
+        return '<div class="rowc"><div class="top"><b>' + esc(c.n) + '</b><span class="chip ok">Completed ' + esc(c.date) + '</span></div><div class="d">' + esc(a.t + ' ' + a.s + ' to ' + b.t + ' ' + b.s + ' PH · ' + c.book) + '</div></div>';
+      }) : assigned.map(function (c) {
+        return '<div class="rowc"><div class="top"><b>' + esc(c.n) + '</b><span class="chip">Assigned</span></div><div class="d">' + esc(c.meta) + '</div></div>';
+      })).join('') + '</div></div>';
+    return h;
+  }
+  function hrTeachers() {
+    if (hrTeacher) return hrTeacherDetail();
+    var h = bannerHtml(), list = [], seen = {}, anySample = false;
+    tids().forEach(function (t) { seen[t] = 1; list.push({ id: t, name: tname(t), sample: false }); });
+    PLACEHOLDER_TEACHERS.forEach(function (n) { var t = slug(n); if (!seen[t]) { seen[t] = 1; anySample = true; list.push({ id: t, name: n, sample: true }); } });
+    list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    h += '<div class="sec"><h2>Teachers (' + list.length + ')</h2>' + (anySample ? '<span class="chip">Includes sample teachers</span>' : '') + '</div>';
+    return h + list.map(function (o) {
+      var free = 0, d, i, as = Object.keys((assigns[o.id] && assigns[o.id].slots) || {}).length, x, r = ratings[o.id] || 0;
+      if (!o.sample) for (d = 0; d < 7; d++) for (i = 0; i < N; i++) { x = effSlot(o.id, d, i); if (x && x.s === 'free') free++; }
+      return '<div class="card click" role="button" tabindex="0" data-a="hr-teacher-open" data-v="' + esc(o.id) + '" aria-label="Open ' + esc(o.name) + '"><div class="cls"><div class="emo"><b>' + esc(o.name.charAt(0).toUpperCase()) + '</b></div><div><h3>' + esc(o.name) + '</h3>' +
+        '<div class="stars" role="group" aria-label="Rating for ' + esc(o.name) + '">' + [1, 2, 3, 4, 5].map(function (n) {
+          return '<button class="star' + (n <= r ? ' on' : '') + '" data-a="rate" data-t="' + esc(o.id) + '" data-n="' + n + '" aria-label="' + n + ' star' + (n > 1 ? 's' : '') + '" aria-pressed="' + (n === r) + '">' + STAR + '</button>';
+        }).join('') + '<span class="rt">' + (r ? r + ' of 5' : 'Not rated') + '</span></div>' +
+        '<div class="d">' + (o.sample ? 'Sample teacher · availability not set' : free + ' free slot' + (free === 1 ? '' : 's') + ' this week · ' + (free / 2) + ' hr') + '</div>' +
+        '<div class="d">' + as + ' assigned class' + (as === 1 ? '' : 'es') + '</div>' +
+        '<div class="acts"><button class="pillbtn" data-a="hr-teacher-open" data-v="' + esc(o.id) + '">View classes</button>' + (o.sample ? '<span class="chip">Sample</span>' : '<button class="pillbtn" data-a="hr-teacher-week" data-v="' + esc(o.id) + '">View week</button>') + '</div></div></div></div>';
+    }).join('');
+  }
+  /* Placeholder students. Each asks for ONE 30-minute class: day = preferred day (0 = Mon), i = the half-hour slot (PH), t = preferred teacher ('' = any). */
+  var STUDENTS = [
+    { n: 'Mia Santos', t: 'Ana', day: 0, i: 14 },
+    { n: 'Leo Tan', t: 'Ben', day: 1, i: 16 },
+    { n: 'Chloe Reyes', t: 'Carla', day: 2, i: 18 },
+    { n: 'Noah Lim', t: '', day: 5, i: 4 },
+    { n: 'Ella Cruz', t: 'Diego', day: 3, i: 20 },
+    { n: 'Kai Navarro', t: 'Ana', day: 2, i: 12 },
+    { n: 'Zoe Garcia', t: '', day: 4, i: 22 },
+    { n: 'Ivan Dela Cruz', t: 'Ben', day: 5, i: 6 }
+  ];
+  function spanText(i0, i1, fn) {
+    var a = fn(i0), b = tm(START + 30 * (i1 + 1) - (fn === vn ? 60 : 0));
+    return a.t + ' ' + a.s + ' to ' + b.t + ' ' + b.s;
+  }
+  function hrStudents(onlyDay) {
+    var h = '', done = {}, list = [];
+    Object.keys(assigns).forEach(function (t) { var sl = assigns[t].slots || {}; Object.keys(sl).forEach(function (k) { done[String(sl[k].n || '').toLowerCase()] = t; }); });
+    var nUn = 0, nAs = 0, isAs = hrStu === 'assigned', empty;
+    STUDENTS.forEach(function (st, k) {
+      if (onlyDay != null && st.day !== onlyDay) return;
+      if (done[st.n.toLowerCase()]) nAs++; else nUn++;
+      if (!!done[st.n.toLowerCase()] === isAs) list.push({ st: st, k: k });
+    });
+    h += '<div class="sec" id="stu-sec"><h2>Students</h2><span class="chip">Sample data</span></div>' +
+      '<div class="card tight stusticky"><div class="seg two-tabs" role="group" aria-label="Student status">' +
+      '<button data-a="hr-stu-tab" data-v="unassigned" aria-pressed="' + !isAs + '">Unassigned (' + nUn + ')</button>' +
+      '<button data-a="hr-stu-tab" data-v="assigned" aria-pressed="' + isAs + '">Assigned (' + nAs + ')</button></div>' +
+      (onlyDay != null ? '<div class="sfilter"><span class="chip">Today · ' + DAYFULL[onlyDay] + '</span><button class="pillbtn" data-a="hr-stu-clear">Show all</button></div>' : '') + '</div>';
+    empty = isAs ? 'No assigned students' : 'Everyone is assigned';
+    if (!list.length) return h + '<div class="card"><p class="empty" style="margin:0">' + empty + (onlyDay != null ? ' for ' + DAYFULL[onlyDay] : '') + '.</p></div>';
+    return h + list.map(function (o) {
+      var st = o.st, k = o.k;
+      var tid = st.t ? slug(st.t) : '', badge = '', isDone = !!done[st.n.toLowerCase()], nf = freeAt(st.day, st.i).length;
+      if (isDone) badge = '<span class="chip">Assigned</span><span class="chip">' + esc(tname(done[st.n.toLowerCase()])) + '</span>';
+      else {
+        if (tid && roster[tid]) badge += '<span class="chip">' + (availFor([st.day], st.i, st.i).indexOf(tid) >= 0 ? 'Teacher is free' : 'Teacher not free') + '</span>';
+        badge += '<span class="chip">' + nf + ' teacher' + (nf === 1 ? '' : 's') + ' free</span>';
+      }
+      return '<div class="card"><div class="shead"><div class="emo"><b>' + esc(st.n.charAt(0)) + '</b></div><h3>' + esc(st.n) + '</h3>' + (isDone ? '<button class="pillbtn danger unas" data-a="hr-student-unassign" data-k="' + k + '" aria-label="Unassign ' + esc(st.n) + '">Unassign</button>' : '') + '</div>' +
+        '<div class="sgrid"><div><span>Preferred teacher</span><b>' + (st.t ? esc(st.t) : 'Any') + '</b></div>' +
+        '<div><span>Class</span><b>' + DAYFULL[st.day] + ' · 30 min</b></div>' +
+        '<div><span>PH time</span><b>' + spanText(st.i, st.i, ph) + '</b></div>' +
+        '<div><span>VN time</span><b>' + spanText(st.i, st.i, vn) + '</b></div></div>' +
+        '<div class="acts sacts">' + badge + (isDone ? '' : '<button class="pillbtn" data-a="hr-student" data-k="' + k + '">Assign</button>') + '</div></div>';
+    }).join('');
+  }
+  function assignStudent(k) {
+    var st = STUDENTS[k], tid;
+    if (!st) return;
+    tid = st.t ? slug(st.t) : null;
+    openAssign(st.day, st.i, null);
+    sh.prefTid = tid; sh.prefName = st.t; sh.fromStudent = true;
+    $('#f-stu').value = st.n;
+    renderPick();
+  }
+  function assignDays() { return [sh.d]; }
+  function availFor(days, i0, i1) {
+    return tids().filter(function (t) {
+      var a, k, x;
+      for (a = 0; a < days.length; a++) for (k = i0; k <= i1; k++) { x = effSlot(t, days[a], k); if (!x || x.s !== 'free') return false; }
+      return true;
+    });
+  }
+  function updateGo() { var b = $('#as-go'); if (b) b.disabled = !(sh.tid && ($('#f-stu').value || '').trim()); }
+  /* Teachers for the assign sheet: real teachers first-hand, plus sample ones for now.
+     Preferred teacher on top, then free before busy, then A to Z. */
+  function teacherOptions() {
+    var out = [], seen = {}, d = sh.d, i = sh.i;
+    tids().forEach(function (t) { var x = effSlot(t, d, i); seen[t] = 1; out.push({ id: t, name: tname(t), free: !!(x && x.s === 'free'), sample: false }); });
+    PLACEHOLDER_TEACHERS.forEach(function (n) { var t = slug(n); if (!seen[t]) { seen[t] = 1; out.push({ id: t, name: n, free: true, sample: true }); } });
+    if (sh.prefTid && !seen[sh.prefTid]) out.push({ id: sh.prefTid, name: sh.prefName || sh.prefTid, free: true, sample: true });
+    out.forEach(function (o) { o.pref = !!sh.prefTid && o.id === sh.prefTid; });
+    out.forEach(function (o) { o.rate = ratings[o.id] || 0; });
+    out.sort(function (a, b) { return (b.pref - a.pref) || (b.free - a.free) || (b.rate - a.rate) || a.name.localeCompare(b.name); });
+    return out;
+  }
+  function pickRow(o) {
+    var star = o.rate ? '<span class="rate"><svg class="st" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z"/></svg>' + o.rate + '</span>' : '<span class="rate none">Not rated</span>';
+    return '<button class="trow" data-a="pick" data-v="' + esc(o.id) + '" aria-pressed="' + (sh.tid === o.id) + '"><span>' + esc(o.name) + '</span>' +
+      '<span class="r">' + (o.pref && !o.free ? '<span class="chip">Not free</span>' : '') + star + '</span></button>';
+  }
+  function renderPick() {
+    var list = teacherOptions(), cur = list.filter(function (o) { return o.id === sh.tid; })[0], pref, avail, h = '';
+    if (sh.tid && (!cur || !(cur.free || cur.pref))) sh.tid = null;
+    pref = list.filter(function (o) { return o.pref; })[0];
+    avail = list.filter(function (o) { return o.free && !o.pref; });
+    if (sh.kind === 'assign' && sh.fromStudent) {
+      h += '<div class="plabel">Preferred teacher</div>' + (pref ? pickRow(pref) : '<div class="d" style="color:var(--mute);font-size:13px;padding:2px 2px 6px">No preferred teacher. Any teacher is fine.</div>');
+    }
+    h += '<div class="plabel">Available teachers · by rating</div>' +
+      (avail.length ? avail.map(pickRow).join('') : '<div class="d" style="color:var(--mute);font-size:13px;padding:2px 2px 6px">No other teachers are free at this time.</div>');
+    $('#pick').innerHTML = h;
+    updateGo();
+  }
+  function openAssign(d, i, pre) {
+    var p = ph(i), v = vn(i), k, opts = '', names = {};
+    sh = { kind: 'assign', d: d, i: i, tid: pre || null };
+    Object.keys(roster).forEach(function (t) { (roster[t].classes || []).forEach(function (c) { if (c.student) names[c.student] = 1; }); });
+    Object.keys(assigns).forEach(function (t) { var sl = assigns[t].slots || {}; Object.keys(sl).forEach(function (q) { if (sl[q].n) names[sl[q].n] = 1; }); });
+    var dl = Object.keys(names).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    openSheet('<h3>Choose a teacher<span>' + DAYFULL[d] + ' · 30 min · PH ' + p.t + ' ' + p.s + ' · VN ' + v.t + ' ' + v.s + '</span></h3>' +
+      '<div class="two"><div class="field"><label for="f-stu">Student</label><input id="f-stu" list="stu-list" autocomplete="off"><datalist id="stu-list">' + dl + '</datalist></div>' +
+      '<div class="field"><label for="f-room">Room</label><input id="f-room" autocomplete="off"></div></div>' +
+      '<div class="field"><label>Choose a teacher</label><div class="tlist" id="pick"></div></div>' +
+      '<button class="save" id="as-go" data-a="assign-save" disabled>Assign</button>');
+    renderPick();
+  }
+  /* A small localStorage-backed stand-in for the shared database: same calls, same snapshots.
+     Other tabs of this browser see changes through the 'storage' event. */
+  function makeLocalDb() {
+    var KEY = 'teacher-schedule-db-v1', subs = [], MD = { fromCache: false, hasPendingWrites: false };
+    function load() { try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : {}; } catch (e) { return {}; } }
+    function save(m) { localStorage.setItem(KEY, JSON.stringify(m)); }
+    function snapDoc(m, path) {
+      var v = m[path];
+      return { id: path.split('/').pop(), exists: v !== undefined, data: function () { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }, metadata: MD };
+    }
+    function snapCol(m, col) {
+      var n = col.split('/').length + 1, docs = Object.keys(m).filter(function (p) { return p.indexOf(col + '/') === 0 && p.split('/').length === n; }).map(function (p) { return snapDoc(m, p); });
+      return { docs: docs, size: docs.length, empty: !docs.length, metadata: MD };
+    }
+    function deliver(sb, m) { try { sb.fn(sb.kind === 'doc' ? snapDoc(m, sb.path) : snapCol(m, sb.path)); } catch (e) {} }
+    function fire() { var m = load(); subs.slice().forEach(function (sb) { deliver(sb, m); }); }
+    function sub(kind, path, fn) {
+      var sb = { kind: kind, path: path, fn: fn };
+      subs.push(sb);
+      setTimeout(function () { if (subs.indexOf(sb) >= 0) deliver(sb, load()); }, 0);
+      return function () { var i = subs.indexOf(sb); if (i >= 0) subs.splice(i, 1); };
+    }
+    window.addEventListener('storage', function (e) { if (e.key === KEY || e.key === null) fire(); });
+    function docRef(path) {
+      return {
+        id: path.split('/').pop(), path: path,
+        get: async function () { return snapDoc(load(), path); },
+        set: async function (d) { var m = load(); m[path] = JSON.parse(JSON.stringify(d)); save(m); fire(); },
+        delete: async function () { var m = load(); delete m[path]; save(m); fire(); },
+        onSnapshot: function (fn) { return sub('doc', path, fn); }
+      };
+    }
+    return {
+      doc: docRef,
+      collection: function (col) { return { get: async function () { return snapCol(load(), col); }, onSnapshot: function (fn) { return sub('col', col, fn); } }; }
+    };
+  }
+  var localDb = null;
+  async function getDb() {
+    if (!dbP) {
+      if (USE_LOCAL) {
+        dbP = Promise.resolve((function () {
+          try { localStorage.setItem('ts-probe', '1'); localStorage.removeItem('ts-probe'); } catch (e) { return null; }
+          return localDb || (localDb = makeLocalDb());
+        })());
+      } else {
+        dbP = (async function () { try { return (window.claude && window.claude.use) ? await window.claude.use('db') : null; } catch (e) { return null; } })();
+      }
+    }
+    return dbP;
+  }
+  async function writeAssign(t, msg) {
+    var d = await getDb();
+    if (!d) { toast('Not saved. Storage is unavailable.'); return; }
+    try { await d.doc('assignments/' + t).set({ slots: (assigns[t] && assigns[t].slots) || {}, by: state.profile.teacher || '' }); if (msg) toast(msg); }
+    catch (e) { toast('Could not save. Try again.'); }
+  }
+  async function saveAssign() {
+    var stu = ($('#f-stu').value || '').trim(), room = ($('#f-room').value || '').trim(), end = sh.i, days = [sh.d], t = sh.tid, g = 'g' + Date.now().toString(36), a, k, cur;
+    if (!t || !stu) return;
+    var opt = teacherOptions().filter(function (o) { return o.id === t; })[0];
+    if (!opt || !(opt.free || opt.pref)) { toast('That teacher is no longer free'); renderPick(); return; }
+    cur = assigns[t] || (assigns[t] = { slots: {} });
+    if (!cur.slots) cur.slots = {};
+    for (a = 0; a < days.length; a++) for (k = sh.i; k <= end; k++) cur.slots[days[a] + '_' + k] = { n: stu, r: room, g: g };
+    closeSheet(); render();
+    await writeAssign(t, stu + ' assigned to ' + tname(t));
+  }
+  async function unassign(t, gid) {
+    var a = assigns[t]; if (!a || !a.slots) return;
+    Object.keys(a.slots).forEach(function (k) { if ((a.slots[k].g || k) === gid) delete a.slots[k]; });
+    render(); await writeAssign(t, 'Unassigned');
+  }
+  async function unassignStudent(k) {
+    var st = STUDENTS[k], name, touched = [];
+    if (!st) return;
+    name = st.n.toLowerCase();
+    Object.keys(assigns).forEach(function (t) {
+      var sl = assigns[t] && assigns[t].slots, hit = false;
+      if (!sl) return;
+      Object.keys(sl).forEach(function (key) { if (String(sl[key].n || '').toLowerCase() === name) { delete sl[key]; hit = true; } });
+      if (hit) touched.push(t);
+    });
+    if (!touched.length) { render(); return; }
+    render();
+    for (var j = 0; j < touched.length; j++) await writeAssign(touched[j], j === touched.length - 1 ? st.n + ' unassigned' : '');
+  }
+  function placeholderChips() {
+    var have = {}, left;
+    acctList.forEach(function (a) { have[a.id] = 1; });
+    left = PLACEHOLDER_TEACHERS.filter(function (n) { return !have[slug(n)]; });
+    return '<div class="pick">' + PLACEHOLDER_TEACHERS.map(function (n) {
+      return have[slug(n)] ? '<span class="chip ok">' + esc(n) + ' · added</span>' : '<button class="pillbtn" data-a="add-placeholder" data-v="' + esc(n) + '" aria-label="Add ' + esc(n) + ' as a test teacher">+ ' + esc(n) + '</button>';
+    }).join('') + '</div>' + '<div class="hint" style="margin-top:6px">' + (left.length ? 'Tap a name to add it as a test teacher with sample free slots. It then appears under Switch account.' : 'All placeholder teachers have been added.') + '</div>';
+  }
+  function acctChips() {
+    var hr = isHR(), cur = teacherId();
+    return '<button class="pillbtn" data-a="switch" data-v="__hr" aria-pressed="' + hr + '">Reizsa (HR)</button>' + acctList.map(function (a) {
+      return '<button class="pillbtn" data-a="switch" data-v="' + esc(a.id) + '" aria-pressed="' + (!hr && a.id === cur) + '">' + esc(a.name) + '</button>';
+    }).join('');
+  }
+  async function refreshAccts() {
+    var d = await getDb(); if (!d) return;
+    try {
+      var qs = await d.collection('teachers').get();
+      var l = qs.docs.map(function (x) { var v = x.data() || {}; return { id: x.id, name: (v.profile && v.profile.teacher) || x.id }; })
+        .filter(function (a) { return !isHRName(a.name); }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      var j = JSON.stringify(l);
+      if (j !== acctJson) { acctJson = j; acctList = l; if (view === 'info') render(); }
+    } catch (e) {}
+  }
+  async function switchAccount(v) {
+    var d = await getDb(), st, snap;
+    if (!d) { toast('Storage is unavailable'); return; }
+    try {
+      clearTimeout(timer);
+      if (dirty && ref) await flush();
+      if (v === '__hr') { st = blank(); st.profile.teacher = 'Reizsa'; st.profile.email = state.profile.email || ''; st.welcomed = true; }
+      else {
+        snap = await d.doc('teachers/' + v).get();
+        if (!snap.exists) { toast('That account no longer exists'); refreshAccts(); return; }
+        st = normalize(snap.data()); st.welcomed = true;
+      }
+      state = st; localSet(); hrSel = 'all'; confirmClear = false;
+      curId = null; curRole = null;
+      closeSheet(); hideWelcome(); render(true); connect();
+      toast('Switched to ' + whoText());
+    } catch (e) { toast('Could not switch account'); }
+  }
+  function sampleSlots() {
+    var o = {}, d, i, a, l, r = function (lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); };
+    for (d = 0; d < 5; d++) {
+      if (Math.random() < 0.2) continue;
+      a = r(0, 6); l = r(4, 6); for (i = a; i < a + l && i < N; i++) o[d + '_' + i] = { s: 'free' };
+      a = r(16, 22); l = r(3, 5); for (i = a; i < a + l && i < N; i++) o[d + '_' + i] = { s: 'free' };
+    }
+    return o;
+  }
+  async function addTestTeacher(given) {
+    var inp = document.getElementById('i-newt'), name = (given || (inp ? inp.value : newT)).trim(), d = await getDb(), id, snap, i;
+    var pool = ['Ana', 'Ben', 'Carla', 'Diego', 'Eli', 'Faye', 'Gio', 'Hana', 'Ivan', 'Joy', 'Kai', 'Lena'];
+    if (!d) { toast('Storage is unavailable'); return; }
+    if (isHRName(name)) { toast('Pick a different name'); return; }
+    try {
+      if (name) { id = slug(name); snap = await d.doc('teachers/' + id).get(); if (snap.exists) { toast(name + ' already exists'); return; } }
+      else {
+        for (i = 0; i < pool.length; i++) { id = slug(pool[i]); snap = await d.doc('teachers/' + id).get(); if (!snap.exists) { name = pool[i]; break; } }
+        if (!name) { toast('Enter a name for the new teacher'); return; }
+      }
+      await d.doc('teachers/' + id).set({ v: 1, welcomed: true, test: true, sample: false, profile: { teacher: name, email: '', zoom: '' }, slots: sampleSlots(), classes: [] });
+      if (!given) { newT = ''; if (inp) inp.value = ''; }
+      toast(name + ' added'); refreshAccts();
+    } catch (e) { toast('Could not add teacher'); }
+  }
+  async function removeTestTeachers() {
+    var d = await getDb(), n = 0;
+    if (!d) { toast('Storage is unavailable'); return; }
+    try {
+      var qs = await d.collection('teachers').get();
+      for (var i = 0; i < qs.docs.length; i++) {
+        var x = qs.docs[i], v = x.data() || {};
+        if (v.test) { await d.doc('teachers/' + x.id).delete(); await d.doc('assignments/' + x.id).delete(); n++; }
+      }
+      refreshAccts();
+      toast(n ? 'Removed ' + n + ' test teacher' + (n === 1 ? '' : 's') : 'No test teachers to remove');
+    } catch (e) { toast('Could not remove'); }
+  }
+  async function connect() {
+    var tok = ++connTok, prev = { id: curId, role: curRole }, name = (state.profile.teacher || '').trim(), hr = isHR(), id = teacherId(), d, seeded = false;
+    unsubs.forEach(function (u) { try { u(); } catch (e) {} }); unsubs = [];
+    ref = null; hrLive = false; roster = {}; assigns = {}; myAssign = { slots: {} }; ratings = {};
+    curId = name ? id : null; curRole = name ? (hr ? 'hr' : 'teacher') : null;
+    d = await getDb();
+    if (tok !== connTok) return;
+    if (prev.role === 'teacher' && prev.id && d && (!name || hr || prev.id !== id)) {
+      (async function (from, to) {
+        try {
+          if (to) { var oa = await d.doc('assignments/' + from).get(); if (oa.exists) { await d.doc('assignments/' + to).set(oa.data()); await d.doc('assignments/' + from).delete(); } }
+          await d.doc('teachers/' + from).delete();
+        } catch (e) {}
+      })(prev.id, (name && !hr) ? id : null);
+    }
+    if (!d || !name) { setSync('device'); render(); endIntro(); return; }
+    try {
+      if (hr) {
+        unsubs.push(d.collection('teachers').onSnapshot(function (qs) {
+          if (tok !== connTok) return;
+          roster = {}; qs.docs.forEach(function (x) { roster[x.id] = normalize(x.data()); });
+          hrLive = true; setSync('live'); endIntro(); render();
+        }, function () { setSync('error'); endIntro(); }));
+        unsubs.push(d.collection('assignments').onSnapshot(function (qs) {
+          if (tok !== connTok) return;
+          assigns = {};
+          qs.docs.forEach(function (x) { var v = x.data() || {}; assigns[x.id] = { slots: (v.slots && typeof v.slots === 'object') ? v.slots : {} }; });
+          render();
+        }, function () {}));
+        unsubs.push(d.doc('hr/ratings').onSnapshot(function (snap) {
+          if (tok !== connTok) return;
+          var v = snap.exists ? snap.data() : null;
+          ratings = (v && v.r && typeof v.r === 'object') ? v.r : {};
+          render();
+        }, function () {}));
+      } else {
+        ref = d.doc('teachers/' + id); setSync('saved');
+        unsubs.push(ref.onSnapshot(function (snap) {
+          if (tok !== connTok) return;
+          endIntro();
+          if (snap.metadata.hasPendingWrites || dirty || writing) return;
+          if (snap.exists) { state = normalize(snap.data()); localSet(); render(); setSync('saved'); if (state.welcomed) hideWelcome(); }
+          else if (!snap.metadata.fromCache && !seeded) { seeded = true; queueSave(); }
+        }, function () { ref = null; setSync('device'); endIntro(); }));
+        unsubs.push(d.doc('assignments/' + id).onSnapshot(function (snap) {
+          if (tok !== connTok) return;
+          var v = snap.exists ? snap.data() : null;
+          myAssign = { slots: (v && v.slots && typeof v.slots === 'object') ? v.slots : {} };
+          render();
+        }, function () {}));
+      }
+    } catch (e) { ref = null; setSync('device'); }
+    if (!ref && !hr) endIntro();
+  }
+
+  /* ---------- sheet ---------- */
+  function openSheet(html) {
+    lastFocus = document.activeElement;
+    $('#panel').innerHTML = '<button class="sx" data-a="sheet-close" aria-label="Close">' + ICONS.x + '</button>' + html;
+    $('#sheet').hidden = false;
+    var f = $('#panel input, #panel .seg button'); (f || $('#panel')).focus();
+  }
+  function closeSheet() { clearSel(); $('#sheet').hidden = true; if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} } }
+
+  /* Class details sheet for an assigned student (teacher Day tab). Lesson and lesson link come from the teacher's own class entry
+     for that student when there is one, otherwise placeholders. */
+  function openAsg(d, i) {
+    var cur = slot(d, i), i0 = i, i1 = i, x, k, seed = 0, nm, mine, lesson, lessonLink, zoom, usedPh = false, a, b, va, vb;
+    if (!cur || cur.s !== 'booked') { openSlot(d, i); return; }
+    function same(q) { return q && q.s === 'booked' && (q.n || '') === (cur.n || '') && (q.r || '') === (cur.r || '') && !!q.hr === !!cur.hr; }
+    while (i0 > 0 && same(slot(d, i0 - 1))) i0--;
+    while (i1 < N - 1 && same(slot(d, i1 + 1))) i1++;
+    nm = cur.n || 'Student';
+    mine = state.classes.filter(function (c) { return String(c.student || '').toLowerCase() === nm.toLowerCase(); })[0];
+    for (k = 0; k < nm.length; k++) seed += nm.charCodeAt(k);
+    lesson = mine && mine.book; lessonLink = mine && safeUrl(mine.link); zoom = safeUrl(state.profile.zoom);
+    if (!lesson) { lesson = PH_BOOKS[seed % PH_BOOKS.length]; usedPh = true; }
+    if (!lessonLink) { lessonLink = 'https://example.com/lessons/' + slug(lesson); usedPh = true; }
+    if (!zoom) { zoom = 'https://zoom.us/j/0000000000'; usedPh = true; }
+    a = ph(i0); b = tm(START + 30 * (i1 + 1)); va = vn(i0); vb = tm(START + 30 * (i1 + 1) - 60);
+    function lrow(label, val, open) {
+      return '<div class="dl"><div class="dlt"><span>' + label + '</span><b>' + esc(val) + '</b></div>' + (open ? '<a class="pillbtn" href="' + esc(open) + '" target="_blank" rel="noopener">Open</a>' : '') + '</div>';
+    }
+    sh = { kind: 'info' };
+    openSheet('<h3>' + esc(nm) + '<span>' + DAYFULL[d] + ' · ' + a.t + ' ' + a.s + ' to ' + b.t + ' ' + b.s + ' PH · VN ' + va.t + ' ' + va.s + ' to ' + vb.t + ' ' + vb.s + (cur.r ? ' · Room ' + esc(cur.r) : '') + '</span></h3>' +
+      '<div class="note warn">' + ICONS.bell + '<span>Please enter the room before the class starts.</span></div>' +
+      '<div class="card tight dls">' + lrow('Lesson', lesson, '') + lrow('Lesson link', lessonLink, lessonLink) + lrow('Zoom link', zoom, zoom) + '</div>' +
+      (usedPh ? '<p class="hint">Some details are sample data for now.</p>' : '') +
+      (cur.hr ? '' : '<button class="save alt" data-a="asg-edit" data-d="' + d + '" data-i="' + i + '">Edit slot</button>') +
+      '<button class="save" data-a="sheet-close">Close</button>');
+  }
+  function openSlot(d, i) {
+    var cur = slot(d, i), p = ph(i), v = vn(i), k, opts = '', names = {};
+    if (cur && cur.hr) {
+      sh = { kind: 'info' };
+      openSheet('<h3>' + DAYFULL[d] + ' ' + p.t + ' ' + p.s + '<span>PH ' + p.t + ' ' + p.s + ' · VN ' + v.t + ' ' + v.s + '</span></h3>' +
+        '<div class="note">' + ICONS.ok + '<span>Assigned by HR: ' + esc(cur.n || 'Student') + (cur.r ? ' · ' + esc(cur.r) : '') + '</span></div>' +
+        '<p class="hint">Only HR can change this slot.</p><button class="save alt" data-a="sheet-close">Close</button>');
+      return;
+    }
+    sh = { kind: 'slot', d: d, i: i, status: cur ? cur.s : 'free' };
+    for (k = i; k < N; k++) opts += '<option value="' + k + '">' + ph(k).t + ' ' + ph(k).s + (k === i ? ' (this slot only)' : '') + '</option>';
+    state.classes.forEach(function (c) { if (c.student) names[c.student] = 1; });
+    var dl = Object.keys(names).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    function sb(val, lab) { return '<button data-a="st" data-v="' + val + '" aria-pressed="' + (sh.status === val) + '">' + lab + '</button>'; }
+    openSheet('<h3>' + DAYFULL[d] + ' ' + p.t + ' ' + p.s + '<span>PH ' + p.t + ' ' + p.s + ' · VN ' + v.t + ' ' + v.s + '</span></h3>' +
+      '<div class="seg" role="group" aria-label="Status">' + sb('free', 'Free') + sb('booked', 'Booked') + sb('clear', 'Clear') + '</div>' +
+      '<div class="two" id="bk"' + (sh.status === 'booked' ? '' : ' hidden') + '><div class="field"><label for="f-stu">Student</label><input id="f-stu" list="stu-list" value="' + esc(cur && cur.n) + '" autocomplete="off"><datalist id="stu-list">' + dl + '</datalist></div>' +
+      '<div class="field"><label for="f-room">Room</label><input id="f-room" value="' + esc(cur && cur.r) + '" autocomplete="off"></div></div>' +
+      '<div class="two"><div class="field"><label for="f-end">Through</label><select id="f-end">' + opts + '</select></div>' +
+      '<div class="field"><label for="f-scope">Apply to</label><select id="f-scope"><option value="day">' + DAYFULL[d] + ' only</option><option value="wk">Mon to Fri</option><option value="all">Every day</option></select></div></div>' +
+      '<button class="save" data-a="slot-save">Save</button>');
+  }
+  function saveSlot() {
+    var end = parseInt($('#f-end').value, 10), scope = $('#f-scope').value;
+    var n = ($('#f-stu').value || '').trim(), r = ($('#f-room').value || '').trim();
+    var days = scope === 'all' ? [0, 1, 2, 3, 4, 5, 6] : scope === 'wk' ? [0, 1, 2, 3, 4] : [sh.d], k;
+    days.forEach(function (x) {
+      for (k = sh.i; k <= end; k++) {
+        var key = x + '_' + k;
+        if (myAssign.slots[key]) continue;
+        if (sh.status === 'clear') delete state.slots[key];
+        else if (sh.status === 'free') state.slots[key] = { s: 'free' };
+        else state.slots[key] = { s: 'booked', n: n, r: r };
+      }
+    });
+    closeSheet(); render(); queueSave();
+  }
+  function rangeOf(g) { return { d0: Math.min(g.d0, g.d1), d1: Math.max(g.d0, g.d1), i0: Math.min(g.i0, g.i1), i1: Math.max(g.i0, g.i1) }; }
+  function openClass(idx) {
+    var c = idx >= 0 ? state.classes[idx] : { room: '', student: '', book: '', link: '' };
+    sh = { kind: 'class', idx: idx };
+    openSheet('<h3>' + (idx >= 0 ? 'Edit class' : 'Add class') + '</h3>' +
+      '<div class="two"><div class="field"><label for="c-room">Room</label><input id="c-room" value="' + esc(c.room) + '" autocomplete="off"></div>' +
+      '<div class="field"><label for="c-stu">Student name</label><input id="c-stu" value="' + esc(c.student) + '" autocomplete="off"></div></div>' +
+      '<div class="field"><label for="c-book">Book</label><input id="c-book" value="' + esc(c.book) + '" autocomplete="off"></div>' +
+      '<div class="field"><label for="c-link">Book link</label><input id="c-link" value="' + esc(c.link) + '" autocomplete="off" inputmode="url"></div>' +
+      '<button class="save" data-a="class-save">Save</button>' + (idx >= 0 ? '<button class="save del" data-a="class-del">Delete class</button>' : ''));
+  }
+  function saveClass() {
+    var c = { room: $('#c-room').value.trim(), student: $('#c-stu').value.trim(), book: $('#c-book').value.trim(), link: $('#c-link').value.trim() };
+    if (!c.room && !c.student && !c.book && !c.link) { toast('Add at least a student or room'); return; }
+    if (sh.idx >= 0) state.classes[sh.idx] = c; else state.classes.push(c);
+    closeSheet(); render(); queueSave();
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-a]'); if (!t) return;
+    var a = t.getAttribute('data-a'), v = t.getAttribute('data-v');
+    if (a !== 'clear-all' && confirmClear) { confirmClear = false; if (view === 'info') render(); }
+    if (a === 'nav') { view = v; hrTeacher = null; hrStuDay = null; render(true); window.scrollTo(0, 0); }
+    else if (a === 'day') { day = parseInt(v, 10); render(true); }
+    else if (a === 'hr-avail') openAvail();
+    else if (a === 'asg-open') openAsg(parseInt(t.getAttribute('data-d'), 10), parseInt(t.getAttribute('data-i'), 10));
+    else if (a === 'slot' || a === 'asg-edit') openSlot(parseInt(t.getAttribute('data-d'), 10), parseInt(t.getAttribute('data-i'), 10));
+    else if (a === 'st') {
+      sh.status = v;
+      Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === v)); });
+      $('#bk').hidden = v !== 'booked';
+    }
+    else if (a === 'slot-save') saveSlot();
+    else if (a === 'undo') doUndo();
+    else if (a === 'welcome-go') submitWelcome();
+    else if (a === 'hr-row') openAssign(parseInt(t.getAttribute('data-d'), 10), parseInt(t.getAttribute('data-i'), 10), null);
+    else if (a === 'hr-cell') openAssign(parseInt(t.getAttribute('data-d'), 10), parseInt(t.getAttribute('data-i'), 10), hrSel === 'all' ? null : hrSel);
+    else if (a === 'hr-info') { var xi = effSlot(hrSel, parseInt(t.getAttribute('data-d'), 10), parseInt(t.getAttribute('data-i'), 10)); toast(xi ? (xi.n || 'Booked') + (xi.r ? ' · ' + xi.r : '') + (xi.hr ? ' (assigned by HR)' : '') : ''); }
+    else if (a === 'hr-filter') { hrSel = v; render(); }
+    else if (a === 'hr-teacher-open') { hrTeacher = v; hrTab = 'assigned'; render(true); window.scrollTo(0, 0); }
+    else if (a === 'hr-un-today') { hrStu = 'unassigned'; hrStuDay = todayIdx(); render(); var ss = document.getElementById('stu-sec'); if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    else if (a === 'hr-as-today') { hrStu = 'assigned'; hrStuDay = todayIdx(); render(); var sa = document.getElementById('stu-sec'); if (sa) sa.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    else if (a === 'hr-student-unassign') unassignStudent(parseInt(t.getAttribute('data-k'), 10));
+    else if (a === 'hr-stu-clear') { hrStuDay = null; render(); }
+    else if (a === 'hr-stu-tab') { hrStu = v; render(); }
+    else if (a === 'hr-tclass-tab') { hrTab = v; render(); }
+    else if (a === 'hr-teacher-back') { hrTeacher = null; render(true); window.scrollTo(0, 0); }
+    else if (a === 'hr-teacher-week') { hrSel = v; view = 'week'; render(true); window.scrollTo(0, 0); }
+    else if (a === 'rate') setRating(t.getAttribute('data-t'), parseInt(t.getAttribute('data-n'), 10));
+    else if (a === 'hr-student') assignStudent(parseInt(t.getAttribute('data-k'), 10));
+    else if (a === 'pick') {
+      sh.tid = v;
+      Array.prototype.forEach.call(document.querySelectorAll('#pick button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === v)); });
+      updateGo();
+    }
+    else if (a === 'assign-save') saveAssign();
+    else if (a === 'switch') switchAccount(v);
+    else if (a === 'add-teacher') addTestTeacher();
+    else if (a === 'add-placeholder') addTestTeacher(v);
+    else if (a === 'remove-tests') removeTestTeachers();
+    else if (a === 'unassign') unassign(t.getAttribute('data-t'), t.getAttribute('data-g'));
+    else if (a === 'sheet-close') closeSheet();
+    else if (a === 'class-add') openClass(-1);
+    else if (a === 'class-edit') openClass(parseInt(t.getAttribute('data-i'), 10));
+    else if (a === 'class-save') saveClass();
+    else if (a === 'class-del') { state.classes.splice(sh.idx, 1); closeSheet(); render(); queueSave(); }
+    else if (a === 'clear-sample') { state.slots = {}; state.classes = []; state.sample = false; render(); queueSave(); }
+    else if (a === 'copy') {
+      var inp = document.getElementById(v), txt = inp ? inp.value : '';
+      if (!txt) { toast('Nothing to copy yet'); return; }
+      var fallback = function () { inp.focus(); inp.select(); toast('Selected. Use your phone copy option.'); };
+      try { navigator.clipboard.writeText(txt).then(function () { toast('Copied'); }, fallback); } catch (err) { fallback(); }
+    }
+    else if (a === 'clear-all') {
+      if (!confirmClear) { confirmClear = true; render(); setTimeout(function () { if (confirmClear) { confirmClear = false; if (view === 'info') render(); } }, 4000); }
+      else { confirmClear = false; state = blank(); localSet(); render(); showWelcome(); connect(); }
+    }
+  });
+  document.addEventListener('input', function (e) {
+    var id = e.target.id;
+    if (id === 'i-teacher' || id === 'i-email' || id === 'i-zoom') {
+      state.profile[id === 'i-teacher' ? 'teacher' : id === 'i-email' ? 'email' : 'zoom'] = e.target.value;
+      $('#who').textContent = whoText();
+      if (id === 'i-teacher') localSet(); else queueSave();
+    }
+    if (id === 'w-name') updGo();
+    if (id === 'i-newt') newT = e.target.value;
+    if (id === 'f-stu' && sh.kind === 'assign') updateGo();
+    if (id === 'f-stu') {
+      var m = state.classes.filter(function (c) { return c.student === e.target.value; })[0], r = $('#f-room');
+      if (m && m.room && r && !r.value) r.value = m.room;
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var id = e.target.id;
+    if (id === 'i-zoom' && view === 'info') render();
+    if (id === 'i-teacher') {
+      state.profile.teacher = String(state.profile.teacher || '').trim();
+      if (!state.profile.teacher || teacherId() !== curId || isHR() !== (curRole === 'hr')) { localSet(); connect(); } else queueSave();
+      render();
+    }
+  });
+  document.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('click') && e.target.getAttribute('data-a')) { e.preventDefault(); e.target.click(); return; } if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); if (e.key === 'Enter' && e.target && e.target.id === 'w-name') { e.preventDefault(); submitWelcome(); } });
+
+  /* ---------- drag to select ---------- */
+  var drag = null, suppress = false, auto = 0;
+  function rangeOf(g) { return { d0: Math.min(g.d0, g.d1), d1: Math.max(g.d0, g.d1), i0: Math.min(g.i0, g.i1), i1: Math.max(g.i0, g.i1) }; }
+  function cellAt(x, y) {
+    var el = document.elementFromPoint(x, y), c, row;
+    if (!el || !el.closest) return null;
+    c = el.closest('[data-a="slot"]');
+    if (!c) { row = el.closest('.row'); if (row) c = row.querySelector('[data-a="slot"]'); }
+    return c ? { d: parseInt(c.getAttribute('data-d'), 10), i: parseInt(c.getAttribute('data-i'), 10) } : null;
+  }
+  var undoSnap = null;
+  function affected(r, mode) {
+    var out = [], d, k, cur;
+    for (d = r.d0; d <= r.d1; d++) for (k = r.i0; k <= r.i1; k++) {
+      cur = slot(d, k);
+      if (mode === 'erase' ? (cur && cur.s === 'free') : !cur) out.push(d + '_' + k);
+    }
+    return out;
+  }
+  function applyDrag(r, mode) {
+    var keys = affected(r, mode), t = $('#toast');
+    clearSel();
+    if (!keys.length) { toast(mode === 'erase' ? 'No open slots in that range' : 'Those slots are already set'); return; }
+    undoSnap = keys.map(function (k) { return [k, state.slots[k]]; });
+    keys.forEach(function (k) { if (mode === 'erase') delete state.slots[k]; else state.slots[k] = { s: 'free' }; });
+    render(); queueSave();
+    t.innerHTML = (mode === 'erase' ? 'Removed ' : 'Opened ') + keys.length + ' slot' + (keys.length === 1 ? '' : 's') + '<button data-a="undo">Undo</button>';
+    t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; undoSnap = null; }, 5000);
+  }
+  function doUndo() {
+    if (!undoSnap) return;
+    undoSnap.forEach(function (p) { if (p[1]) state.slots[p[0]] = p[1]; else delete state.slots[p[0]]; });
+    undoSnap = null; $('#toast').hidden = true; render(); queueSave();
+  }
+  function clearSel() {
+    Array.prototype.forEach.call(document.querySelectorAll('.sel'), function (b) { b.classList.remove('sel'); });
+  }
+  function paint() {
+    var r = rangeOf(drag);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-a="slot"]'), function (b) {
+      var d = parseInt(b.getAttribute('data-d'), 10), i = parseInt(b.getAttribute('data-i'), 10);
+      b.classList.toggle('sel', d >= r.d0 && d <= r.d1 && i >= r.i0 && i <= r.i1);
+    });
+    var n = affected(r, drag.mode).length, a = ph(r.i0), b = tm(START + 30 * (r.i1 + 1)), t = $('#toast');
+    t.textContent = (drag.mode === 'erase' ? 'Removing ' : 'Opening ') + n + ' slot' + (n === 1 ? '' : 's') + ' · ' + a.t + ' ' + a.s + ' to ' + b.t + ' ' + b.s;
+    t.hidden = false; clearTimeout(toast._t);
+  }
+  function track(x, y) {
+    var c = cellAt(x, y);
+    if (c && (c.d !== drag.d1 || c.i !== drag.i1)) { drag.d1 = c.d; drag.i1 = c.i; paint(); }
+  }
+  function activate() {
+    drag.active = true; document.body.classList.add('dragging'); document.body.classList.toggle('erase', drag.mode === 'erase'); paint(); autoScroll();
+  }
+  function autoScroll() {
+    cancelAnimationFrame(auto);
+    (function loop() {
+      if (!drag || !drag.active) return;
+      var topEdge = $('#stick').getBoundingClientRect().bottom + 28, botEdge = window.innerHeight - 130, v = 0;
+      if (drag.y < topEdge) v = -Math.min(18, (topEdge - drag.y) / 3);
+      else if (drag.y > botEdge) v = Math.min(18, (drag.y - botEdge) / 3);
+      if (v) { window.scrollBy(0, v); track(drag.x, drag.y); }
+      auto = requestAnimationFrame(loop);
+    })();
+  }
+  function cancelDrag() {
+    if (drag) clearTimeout(drag.timer);
+    cancelAnimationFrame(auto);
+    var was = drag && drag.active;
+    drag = null; document.body.classList.remove('dragging', 'erase');
+    if (was) { clearSel(); $('#toast').hidden = true; }
+  }
+  document.addEventListener('pointerdown', function (e) {
+    if (e.button > 0 || !$('#sheet').hidden) return;
+    var c = e.target.closest && e.target.closest('[data-a="slot"]'); if (!c) return;
+    var d = parseInt(c.getAttribute('data-d'), 10), i = parseInt(c.getAttribute('data-i'), 10);
+    cancelDrag();
+    var cs = slot(d, i);
+    drag = { mode: (cs && cs.s === 'free') ? 'erase' : 'open', pt: e.pointerType, d0: d, i0: i, d1: d, i1: i, active: false, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY };
+    if (e.pointerType !== 'mouse') {
+      drag.timer = setTimeout(function () {
+        if (!drag) return;
+        activate();
+        try { if (navigator.vibrate) navigator.vibrate(12); } catch (er) {}
+      }, 320);
+    }
+  });
+  document.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (!drag.active) {
+      var moved = Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy);
+      if (drag.pt === 'mouse') { if (moved > 6) activate(); else return; }
+      else { if (moved > 10) cancelDrag(); return; }
+    }
+    track(e.clientX, e.clientY);
+  });
+  document.addEventListener('touchmove', function (e) { if (drag && drag.active && e.cancelable) e.preventDefault(); }, { passive: false });
+  document.addEventListener('contextmenu', function (e) { if (drag && e.target.closest && e.target.closest('[data-a="slot"]')) e.preventDefault(); });
+  window.addEventListener('pointerup', function () {
+    if (!drag) return;
+    var g = drag, wasActive = g.active;
+    clearTimeout(g.timer); cancelAnimationFrame(auto);
+    drag = null; document.body.classList.remove('dragging', 'erase');
+    if (!wasActive) return;
+    suppress = true; setTimeout(function () { suppress = false; }, 350);
+    $('#toast').hidden = true;
+    var r = rangeOf(g);
+    if (r.d0 === r.d1 && r.i0 === r.i1) { clearSel(); openSlot(r.d0, r.i0); } else applyDrag(r, g.mode);
+  });
+  window.addEventListener('pointercancel', cancelDrag);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drag) cancelDrag(); });
+  document.addEventListener('click', function (e) { if (suppress) { suppress = false; e.stopPropagation(); e.preventDefault(); } }, true);
+
+  /* ---------- welcome ---------- */
+  /* Live Philippines time (Asia/Manila), the same for everyone whatever their device timezone. */
+  var phFmt = null;
+  function tickClock() {
+    var el = $('#clock'); if (!el) return;
+    try {
+      phFmt = phFmt || new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+      el.innerHTML = '<small>PH</small>' + esc(phFmt.format(new Date()));
+    } catch (e) {
+      var u = new Date(), m = new Date(u.getTime() + u.getTimezoneOffset() * 60000 + 8 * 3600000), h = m.getHours();
+      el.innerHTML = '<small>PH</small>' + (h % 12 || 12) + ':' + ('0' + m.getMinutes()).slice(-2) + ':' + ('0' + m.getSeconds()).slice(-2) + ' ' + (h >= 12 ? 'PM' : 'AM');
+    }
+  }
+  tickClock(); setInterval(tickClock, 1000);
+  function updGo() { $('#w-go').disabled = !$('#w-name').value.trim(); }
+  function showWelcome() {
+    var w = $('#welcome');
+    w.hidden = false; w.classList.remove('out', 'show');
+    $('#w-name').value = state.profile.teacher || ''; updGo();
+    void w.offsetWidth; w.classList.add('show');
+    setTimeout(function () { try { $('#w-name').focus({ preventScroll: true }); } catch (e) {} }, 550);
+  }
+  function hideWelcome() {
+    var w = $('#welcome'); if (w.hidden) return;
+    w.classList.add('out');
+    setTimeout(function () { w.hidden = true; w.classList.remove('out', 'show'); }, 550);
+  }
+  function submitWelcome() {
+    var n = $('#w-name').value.trim(); if (!n) return;
+    state.profile.teacher = n; state.welcomed = true;
+    hideWelcome(); localSet(); render(true); connect(); toast('Hi ' + n + '!');
+  }
+
+  /* ---------- intro ---------- */
+  var introT0 = Date.now(), introDone = false,
+    introMin = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) ? 400 : 1700;
+  document.body.classList.add('intro-on');
+  (function () {
+    var pat = 'f.fb.f.ff.b.f.f.f.fbf.', h = '', i, c, row = 4, col = 5, pat2 = ['f', 'f', '', 'b', 'f', '', 'f', 'f', 'f', '', 'f', 'b', 'f', '', 'f', 'f', '', 'f', 'f', 'b'];
+    for (i = 0; i < row * col; i++) { c = pat2[i]; h += '<i' + (c ? ' class="' + c + '"' : '') + ' style="--i:' + i + '"></i>'; }
+    $('#in-grid').innerHTML = h;
+  })();
+  function endIntro() {
+    if (introDone) return; introDone = true;
+    var el = $('#intro'); if (!el) return;
+    setTimeout(function () {
+      el.classList.add('done');
+      setTimeout(function () {
+        el.classList.add('out'); document.body.classList.remove('intro-on'); render(true); if (!state.welcomed) showWelcome();
+        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 650);
+      }, 200);
+    }, Math.max(0, introMin - (Date.now() - introT0)));
+  }
+  setTimeout(endIntro, 4000);
+
+  /* ---------- start ---------- */
+  var local = localGet();
+  state = local ? normalize(local) : blank();
+  $('#in-who').textContent = state.profile.teacher ? 'Teacher ' + state.profile.teacher : '';
+  render(true);
+
+  connect();
+})();
+</script>
+
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+</body></html>
