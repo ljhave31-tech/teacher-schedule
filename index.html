@@ -567,7 +567,7 @@ main.play > * { animation: rise .6s var(--ease) backwards; animation-delay: calc
     bell: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
     book: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10"/></svg>'
   };
-  var TABS = [['day', 'Month'], ['week', 'Week'], ['classes', 'Classes'], ['info', 'Info']];
+  var TABS = [['day', 'Month'], ['week', 'Week'], ['info', 'Info']];
   var HRTABS = [['day', 'Month'], ['week', 'Week'], ['teachers', 'Teachers'], ['info', 'Info']];
 
   function renderNav() {
@@ -718,7 +718,7 @@ main.play > * { animation: rise .6s var(--ease) backwards; animation-delay: calc
       '<button class="save alt" data-a="add-teacher">Add new teacher</button><button class="save del" data-a="remove-tests">Remove test teachers</button></div>';
   }
   function render(anim) {
-    if (view === 'students' || (view === 'teachers' && !isHR()) || (view === 'classes' && isHR())) view = 'day';
+    if (view === 'students' || (view === 'teachers' && !isHR()) || view === 'classes') view = 'day';
     renderTop(); renderNav();
     var m = $('#view');
     m.setAttribute('data-view', view);

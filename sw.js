@@ -1,6 +1,6 @@
 /* Teacher Schedule service worker: makes the app installable and usable offline.
    Bump CACHE when you want every device to drop its old cached files. */
-var CACHE = 'teacher-schedule-v2';
+var CACHE = 'teacher-schedule-v3';
 var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon.png', 'icons/favicon-32.png', 'firebase-config.js'];
 
 self.addEventListener('install', function (e) {
