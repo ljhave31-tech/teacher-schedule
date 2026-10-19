@@ -1,6 +1,6 @@
 /* Teacher Schedule service worker: makes the app installable and usable offline.
    Bump CACHE when you want every device to drop its old cached files. */
-var CACHE = 'teacher-schedule-v3';
+var CACHE = 'teacher-schedule-v4';
 var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon.png', 'icons/favicon-32.png', 'firebase-config.js'];
 
 self.addEventListener('install', function (e) {
@@ -17,7 +17,7 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   /* pages: network first so new GitHub pushes show up, cache when offline */
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(function (r) {
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(function (r) {
       var copy = r.clone(); caches.open(CACHE).then(function (c) { c.put('index.html', copy); }); return r;
     }).catch(function () { return caches.match('index.html'); }));
     return;
