@@ -473,6 +473,10 @@ main.play > * { animation: rise .6s var(--ease) backwards; animation-delay: calc
 </div>
 <div id="toast" hidden role="status"></div>
 
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script>
 (function () {
   'use strict';
@@ -482,7 +486,9 @@ main.play > * { animation: rise .6s var(--ease) backwards; animation-delay: calc
   var view = 'day', day = (new Date().getDay() + 6) % 7;
   var state = null, ref = null, dirty = false, writing = false, timer = null, seeded = false, syncMode = 'device';
   var sh = {}, lastFocus = null, confirmClear = false;
-  var USE_LOCAL = true; /* true: everything is saved in this browser's localStorage. false: use the shared claude.ai database. */
+  /* Shared database: Firebase Firestore once firebase-config.js is filled in. Until then everything is saved in this browser's localStorage. */
+  var FB_CFG = window.FIREBASE_CONFIG || null;
+  var USE_LOCAL = !(FB_CFG && FB_CFG.apiKey && FB_CFG.projectId && !/PASTE|YOUR_/i.test(FB_CFG.apiKey + FB_CFG.projectId));
   var newT = '', acctList = [], acctJson = '', ratings = {};
   var STAR = '<svg class="st" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z"/></svg>';
   var SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -1073,7 +1079,17 @@ main.play > * { animation: rise .6s var(--ease) backwards; animation-delay: calc
           return localDb || (localDb = makeLocalDb());
         })());
       } else {
-        dbP = (async function () { try { return (window.claude && window.claude.use) ? await window.claude.use('db') : null; } catch (e) { return null; } })();
+        dbP = (async function () {
+          try {
+            if (!window.firebase) return null;
+            var app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB_CFG);
+            var fs = firebase.firestore();
+            try { await fs.enablePersistence({ synchronizeTabs: true }); } catch (e) {}
+            var au = firebase.auth();
+            if (!au.currentUser) await au.signInAnonymously();
+            return fs;
+          } catch (e) { return null; }
+        })();
       }
     }
     return dbP;

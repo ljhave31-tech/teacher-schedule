@@ -1,7 +1,7 @@
 /* Teacher Schedule service worker: makes the app installable and usable offline.
    Bump CACHE when you want every device to drop its old cached files. */
-var CACHE = 'teacher-schedule-v1';
-var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon.png', 'icons/favicon-32.png'];
+var CACHE = 'teacher-schedule-v2';
+var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon.png', 'icons/favicon-32.png', 'firebase-config.js'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -23,7 +23,7 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   /* own files and Google Fonts: cache first, fill the cache as they load */
-  if (url.origin === location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
+  if (url.origin === location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname) || (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0)) {
     e.respondWith(caches.match(req).then(function (hit) {
       return hit || fetch(req).then(function (r) {
         if (r && (r.ok || r.type === 'opaque')) { var copy = r.clone(); caches.open(CACHE).then(function (c) { c.put(req, copy); }); }
